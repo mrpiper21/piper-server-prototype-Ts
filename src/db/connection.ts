@@ -1,7 +1,14 @@
 import mongoose from 'mongoose';
+import dotenv from "dotenv";
+dotenv.config();
 // import { logger } from '../logger.js';
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb+srv://benbaah104_db_user:PUE6MRjP8alvQ2Z8@piper-print.cvmlza0.mongodb.net/?retryWrites=true&w=majority&appName=piper-print";
+const MONGODB_URI = process.env.MONGODB_URI;
+
+if (!MONGODB_URI) {
+	console.error("❌ MONGODB_URI is not defined in environment variables");
+	process.exit(1);
+}
 
 export const connectDB = async (): Promise<void> => {
   try {
