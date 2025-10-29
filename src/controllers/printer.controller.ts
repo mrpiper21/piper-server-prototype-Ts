@@ -4,20 +4,7 @@ import { promisify } from 'util';
 import pdfPrintModel from '../models/printer.model.js';
 import path from 'path';
 import axios from "axios"
-
-// --- FIX 1: Declare Multer file type manually to avoid namespace issue ---
-interface MulterFile {
-  /** Name of the file on the server */
-  filename: string;
-  /** Name of the file on the user's computer */
-  originalname: string;
-  /** MIME type of the file */
-  mimetype: string;
-  /** Path to the uploaded file */
-  path: string;
-  /** Size of the file in bytes */
-  size: number;
-}
+import uploadToFileStack from '../helpes/uploadToFileStack.js';
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -29,62 +16,92 @@ class PrinterController {
     try {
       const file = req.file as any | undefined;
       const body = req.body;
-
+  
       if (!file) {
         res.status(400).json({
           success: false,
-          message: 'No PDF file uploaded',
+          message: 'No file uploaded',
         });
         return;
       }
-
-      // Validate file type
-      if (file.mimetype !== 'application/pdf') {
+  
+  
+      // Validate required fields from the form
+      if (!body.artwork || !body.width || !body.height || !body.quantity || !body.location) {
         fs.unlinkSync(file.path);
         res.status(400).json({
           success: false,
-          message: 'Only PDF files are allowed',
+          message: 'Missing required fields: artwork, width, height, quantity, and location are required',
         });
         return;
       }
-
+  
+      // Upload file to FileStack (optional - fallback to local file if fails)
+      let fileStackData;
+      let useFileStack = false;
+      
+      try {
+        fileStackData = await uploadToFileStack(file.path, file.originalname, file.mimetype);
+        // Check if upload was successful (has url and filename)
+        if (fileStackData && fileStackData.url && fileStackData.filename) {
+          console.log('FileStack upload successful:', fileStackData);
+          useFileStack = true;
+        } else {
+          console.warn('FileStack upload returned invalid data:', fileStackData);
+          useFileStack = false;
+        }
+      } catch (error: any) {
+        console.warn('FileStack upload failed, using local file:', error);
+        useFileStack = false;
+      }
+  
+      // Use FileStack data if available, otherwise use local file data
       const printData: Record<string, any> = {
-        fileName: file.filename,
-        filePath: file.path,
+        fileName: useFileStack ? fileStackData.filename : file.filename,
+        filePath: useFileStack ? fileStackData.url : file.path,
         fileSize: file.size,
         originalName: file.originalname,
-        mimeType: file.mimetype,
         printerName: body.printerName || 'default',
         copies: parseInt(body.copies, 10) || 1,
         duplex: body.duplex === 'true',
         color: body.color === 'true',
-        pageRange: body.pageRange,
-        submittedBy: body.submittedBy || 'anonymous',
         status: 'pending',
+        artwork: body.artwork,
+        width: body.width,
+        height: body.height,
+        size: useFileStack ? fileStackData.size : `${body.width} x ${body.height}`,
+        quantity: parseInt(body.quantity, 10),
+        location: body.location,
+        description: body.description || '',
+        ...(useFileStack && {
+          fileStackUrl: fileStackData.url,
+          fileStackKey: fileStackData.key,
+        }),
       };
-
+  
       const pdfPrint = new pdfPrintModel(printData);
       await pdfPrint.save();
-
+  
       console.log("saved ----- ", pdfPrint)
-
-      await this.processPrintJob(pdfPrint);
-
       res.status(201).json({
         success: true,
-        message: 'PDF submitted for printing successfully',
+        message: 'File submitted for printing successfully',
         data: {
           id: pdfPrint._id,
           fileName: pdfPrint.fileName,
+          artwork: pdfPrint.artwork,
+          size: pdfPrint.size,
+          quantity: pdfPrint.quantity,
+          location: pdfPrint.location,
           status: pdfPrint.status,
           submittedAt: pdfPrint.createdAt,
         },
       });
     } catch (error: any) {
-      console.error('Error submitting PDF:', error);
+      console.error('Error submitting file:', error);
       res.status(500).json({
         success: false,
-        message: 'Failed to submit PDF for printing',
+        message: 'Failed to submit file for printing',
         error: error.message,
       });
     }
@@ -92,7 +109,7 @@ class PrinterController {
 
   private async downloadFromFileStack(fileUrl: string, fileName: string): Promise<string> {
     try {
-      const uploadsDir = path.join(process.cwd(), 'uploads', 'pdfs');
+      const uploadsDir = path.join(process.cwd(), 'uploads');
       
       // Ensure upload directory exists
       if (!fs.existsSync(uploadsDir)) {

@@ -17,10 +17,6 @@ const PDFPrintSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  mimeType: {
-    type: String,
-    default: 'application/pdf'
-  },
   status: {
     type: String,
     enum: ['pending', 'processing', 'completed', 'failed'],
@@ -42,24 +38,47 @@ const PDFPrintSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  pageRange: {
-    type: String
-  },
-  submittedBy: {
-    type: String
-  },
-  errorMessage: {
-    type: String
-  },
   printJobId: {
     type: String
   },
-  // New FileStack fields
   fileStackUrl: {
     type: String
   },
   fileStackKey: {
     type: String
+  },
+  artwork: {
+    type: String,
+    required: true
+  },
+  width: {
+    type: String,
+    required: true
+  },
+  height: {
+    type: String,
+    required: true
+  },
+  size: {
+    type: String,
+    required: true
+  },
+  quantity: {
+    type: Number,
+    required: true,
+    default: 1
+  },
+  location: {
+    type: String,
+    required: true
+  },
+  description: {
+    type: String,
+    default: ''
+  },
+  submittedBy: {
+    type: String,
+    default: 'frontend-user'
   }
 }, {
   timestamps: true
@@ -68,6 +87,8 @@ const PDFPrintSchema = new mongoose.Schema({
 // Index for better query performance
 PDFPrintSchema.index({ status: 1, createdAt: 1 });
 PDFPrintSchema.index({ submittedBy: 1 });
+PDFPrintSchema.index({ location: 1 });
+PDFPrintSchema.index({ artwork: 1 });
 
 const pdfPrintModel = mongoose.model('PDFPrint', PDFPrintSchema);
 

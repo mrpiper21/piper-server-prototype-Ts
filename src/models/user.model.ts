@@ -52,29 +52,29 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MAINTAIN_PRINTERS,
     Permission.VIEW_LOGS
   ],
-  [UserRole.MANAGER]: [
-    Permission.VIEW_ANALYTICS,
-    Permission.VIEW_REPORTS,
-    Permission.MANAGE_AGENTS,
-    Permission.VIEW_ALL_JOBS,
-    Permission.VIEW_AGENTS,
-    Permission.VIEW_LOGS
-  ],
+  // [UserRole.MANAGER]: [
+  //   Permission.VIEW_ANALYTICS,
+  //   Permission.VIEW_REPORTS,
+  //   Permission.MANAGE_AGENTS,
+  //   Permission.VIEW_ALL_JOBS,
+  //   Permission.VIEW_AGENTS,
+  //   Permission.VIEW_LOGS
+  // ],
   [UserRole.CLERK]: [
     Permission.MANAGE_JOBS,
     Permission.SUBMIT_PRINTS,
     Permission.VIEW_AGENTS,
     Permission.VIEW_OWN_JOBS
   ],
-  [UserRole.TECHNICIAN]: [
-    Permission.MAINTAIN_PRINTERS,
-    Permission.VIEW_LOGS,
-    Permission.VIEW_AGENTS
-  ],
-  [UserRole.CUSTOMER]: [
-    Permission.SUBMIT_JOBS,
-    Permission.VIEW_OWN_JOBS
-  ]
+  // [UserRole.TECHNICIAN]: [
+  //   Permission.MAINTAIN_PRINTERS,
+  //   Permission.VIEW_LOGS,
+  //   Permission.VIEW_AGENTS
+  // ],
+  // [UserRole.CUSTOMER]: [
+  //   Permission.SUBMIT_JOBS,
+  //   Permission.VIEW_OWN_JOBS
+  // ]
 };
 
 // User interface
@@ -123,7 +123,7 @@ const userSchema = new Schema<IUser>({
     type: String,
     enum: Object.values(UserRole),
     required: [true, 'Role is required'],
-    default: UserRole.CUSTOMER
+    default: UserRole.CLERK
   },
   permissions: [{
     type: String,

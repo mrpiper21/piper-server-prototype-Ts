@@ -16,7 +16,7 @@ const __dirname = path.dirname(__filename);
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads/pdfs');
+    const uploadDir = path.join(__dirname, '../../uploads');
     // Ensure directory exists
     fs.mkdirSync(uploadDir, { recursive: true });
     cb(null, uploadDir);
@@ -24,7 +24,7 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     // Generate unique filename
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `pdf-${uniqueSuffix}${path.extname(file.originalname)}`);
+    cb(null, `file-${uniqueSuffix}${path.extname(file.originalname)}`);
   },
 });
 
@@ -33,10 +33,36 @@ const fileFilter = (
   file: Express.Multer.File,
   cb: FileFilterCallback
 ): void => {
-  if (file.mimetype === 'application/pdf') {
+  // Allowed file types
+  const allowedMimeTypes = [
+    // PDF
+    'application/pdf',
+    // Images
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/bmp',
+    'image/tiff',
+    // Documents
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+    // Text files
+    'text/plain',
+    'text/csv',
+    // Other
+    'application/postscript', // .ps, .eps
+  ];
+  
+  if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Only PDF files are allowed'));
+    cb(new Error(`File type not allowed. Allowed types: ${allowedMimeTypes.join(', ')}`));
   }
 };
 
