@@ -33,10 +33,10 @@ router.get('/stats',
 /**
  * @route   GET /api/users/role/:role
  * @desc    Get users by role
- * @access  Admin/Manager only
+ * @access  Admin only
  */
 router.get('/role/:role', 
-  AuthController.checkRole([UserRole.ADMIN, UserRole.MANAGER]),
+  AuthController.checkRole([UserRole.ADMIN]),
   userValidation.getUsersByRole,
   UserController.getUsersByRole
 );
@@ -44,10 +44,10 @@ router.get('/role/:role',
 /**
  * @route   GET /api/users/:id
  * @desc    Get user by ID
- * @access  Admin/Manager only
+ * @access  Admin only
  */
 router.get('/:id', 
-  AuthController.checkRole([UserRole.ADMIN, UserRole.MANAGER]),
+  AuthController.checkRole([UserRole.ADMIN]),
   userValidation.getUserById,
   UserController.getUserById
 );

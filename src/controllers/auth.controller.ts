@@ -34,7 +34,7 @@ export class AuthController {
         return;
       }
 
-      const { email, password, name, role = UserRole.CUSTOMER } = req.body;
+      const { email, password, name, role = UserRole.CLERK } = req.body;
 
       // Check if user already exists
       const existingUser = await User.findOne({ email });
