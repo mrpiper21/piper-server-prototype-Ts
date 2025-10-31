@@ -75,7 +75,7 @@ const upload = multer({
 });
 
 // Routes
-router.post('/submit', upload.single('pdfFile'), (req, res) => PrinterController.submitPDF(req, res));
+router.post('/submit/client/:id', upload.single('pdfFile'), (req, res) => PrinterController.submitPDF(req, res));
 router.get('/jobs', (req, res) => PrinterController.getPrintJobs(req, res));
 router.get('/jobs/:id', (req, res) => PrinterController.getPrintJob(req, res));
 router.put('/jobs/:id/status', (req, res) => PrinterController.updatePrintJobStatus(req, res));

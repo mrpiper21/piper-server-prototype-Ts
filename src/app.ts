@@ -3,6 +3,7 @@ import cors from 'cors';
 import printerRoutes from './routes/printer.route.js';
 import authRoutes from "./routes/auth.route.js";
 import userRoutes from "./routes/user.route.js";
+import clientRoutes from "./routes/client.route.js";
 import multer from "multer";
 import mongoose from "mongoose";
 import morgan from "morgan";
@@ -22,7 +23,7 @@ app.use(helmet());
 // CORS configuration
 app.use(
 	cors({
-		origin: process.env.FRONTEND_URL || "http://localhost:5173",
+		origin: ["http://localhost:5174", "http://localhost:5173"],
 		credentials: true,
 	})
 );
@@ -39,6 +40,7 @@ connectDB();
 app.use("/api/print", printerRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/clients", clientRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 
 // Health check endpoint

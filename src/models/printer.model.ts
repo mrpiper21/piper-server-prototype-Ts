@@ -18,6 +18,10 @@ const PDFPrintSchema = new mongoose.Schema(
 			type: String,
 			required: true,
 		},
+		clientId: {
+			type: String,
+			required: true,
+		},
 		status: {
 			type: String,
 			enum: ["pending", "processing", "completed", "failed"],
