@@ -9,6 +9,7 @@ import morgan from "morgan";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import { connectDB } from "./db/connection.js";
+import dashboardRoutes from "./routes/dashboard.route.js";
 
 // Load environment variables
 dotenv.config();
@@ -38,6 +39,7 @@ connectDB();
 app.use("/api/print", printerRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req: Request, res: Response) => {
