@@ -7,6 +7,7 @@
 	"scripts": {
 		"build": "tsc",
 		"start": "node dist/app.js",
+		"postbuild": "echo Build completed successfully",
 		"dev": "nodemon --watch 'src/**/*.ts' --exec tsx src/app.ts",
 		"dev:alt": "tsx watch src/app.ts",
 		"setup-db": "node setup-db.js"
