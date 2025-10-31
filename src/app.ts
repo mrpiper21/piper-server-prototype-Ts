@@ -11,6 +11,7 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import { connectDB } from "./db/connection.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
+import { startKeepAlive } from "./utils/keepAlive.js";
 
 // Load environment variables
 dotenv.config();
@@ -85,4 +86,7 @@ app.listen(PORT, () => {
 		`🚀 Printer Management System API server running on port ${PORT}`
 	);
 	console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+	
+	// Start keep-alive to prevent Render free tier spin-down
+	startKeepAlive();
 });

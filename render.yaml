@@ -20,4 +20,9 @@ services:
         value: 7d
       - key: FRONTEND_URL
         sync: false
+      - key: RENDER_EXTERNAL_URL
+        fromService:
+          type: web
+          name: piper-server-api
+          property: host
 
