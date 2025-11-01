@@ -121,15 +121,15 @@ const userSchema = new Schema<IUser>({
   location: {
     latitude: {
       type: Number,
-      required: true,
+      required: false,
     },
     longitude: {
       type: Number,
-      required: true,
+      required: false,
     },
     address: {
       type: String,
-      required: true,
+      required: false,
     },
   },
   name: {
