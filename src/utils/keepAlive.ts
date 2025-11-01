@@ -30,7 +30,7 @@ export function startKeepAlive(server: http.Server) {
 
   // Strategy 2: External ping (if URL is available)
   const externalUrl = getExternalUrl();
-  let externalInterval: NodeJS.Timeout | null = null;
+  let externalInterval: ReturnType<typeof setInterval> | null = null;
   
   if (externalUrl) {
     console.log(`🔄 External keep-alive also enabled: ${externalUrl}`);
@@ -67,7 +67,7 @@ function pingInternalHealth(port: number) {
     timeout: 3000,
   };
 
-  const req = http.request(options, (res) => {
+  const req = http.request(options, (res: http.IncomingMessage) => {
     if (res.statusCode === 200) {
       const timestamp = new Date().toISOString();
       console.log(`✅ [Internal] Keep-alive ping successful at ${timestamp}`);
