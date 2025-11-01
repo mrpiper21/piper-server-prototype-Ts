@@ -24,7 +24,7 @@ app.use(helmet());
 // CORS configuration
 app.use(
 	cors({
-		origin: ["http://localhost:5174", "http://localhost:5173"],
+		origin: ["http://localhost:5174", "http://localhost:5173","https://piper-client-phi.vercel.app"],
 		credentials: true,
 	})
 );
