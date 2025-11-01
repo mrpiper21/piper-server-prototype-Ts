@@ -29,7 +29,8 @@
 		"mongodb": "^6.20.0",
 		"mongoose": "^8.19.2",
 		"morgan": "^1.10.1",
-		"multer": "^2.0.2"
+		"multer": "^2.0.2",
+		"@types/node": "^20.10.5"
 	},
 	"devDependencies": {
 		"@types/bcryptjs": "^2.4.6",
@@ -38,7 +39,6 @@
 		"@types/jsonwebtoken": "^9.0.10",
 		"@types/morgan": "^1.9.10",
 		"@types/multer": "^2.0.0",
-		"@types/node": "^20.10.5",
 		"nodemon": "^3.0.2",
 		"ts-node": "^10.9.2",
 		"tsx": "^4.20.6",
