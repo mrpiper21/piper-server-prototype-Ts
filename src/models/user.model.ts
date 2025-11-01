@@ -64,7 +64,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MANAGE_JOBS,
     Permission.SUBMIT_PRINTS,
     Permission.VIEW_AGENTS,
-    Permission.VIEW_OWN_JOBS
+    Permission.VIEW_OWN_JOBS,
+    Permission.MANAGE_USERS
   ],
   // [UserRole.TECHNICIAN]: [
   //   Permission.MAINTAIN_PRINTERS,
