@@ -152,7 +152,7 @@ export class UserController {
   static async updateUser(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
-      const { email, name, role, permissions, isActive } = req.body;
+      const { email, name, role, permissions, isActive, location } = req.body;
 
       const user = await User.findById(id);
       if (!user) {
@@ -180,7 +180,7 @@ export class UserController {
       if (role) user.role = role;
       if (permissions) user.permissions = permissions;
       if (isActive !== undefined) user.isActive = isActive;
-
+      if (location) user.location = location;
       await user.save();
 
       res.json({

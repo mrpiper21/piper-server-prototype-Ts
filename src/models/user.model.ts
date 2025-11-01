@@ -84,6 +84,11 @@ export interface IUser extends Document {
   password: string;
   name: string;
   role: UserRole;
+  location: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  }
   permissions: Permission[];
   isActive: boolean;
   lastLogin?: Date;
@@ -112,6 +117,20 @@ const userSchema = new Schema<IUser>({
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters'],
     select: false // Don't include password in queries by default
+  },
+  location: {
+    latitude: {
+      type: Number,
+      required: true,
+    },
+    longitude: {
+      type: Number,
+      required: true,
+    },
+    address: {
+      type: String,
+      required: true,
+    },
   },
   name: {
     type: String,

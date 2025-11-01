@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import Client from '../models/client.model.js';
 import jwt from 'jsonwebtoken';
+import pdfPrintModel from '../models/printer.model.js';
+import mongoose from 'mongoose';
 
 export class ClientController {
   /**
@@ -536,6 +538,29 @@ export class ClientController {
           inactiveClients,
           activeClients: totalClients,
           recentClients
+        }
+      });
+    } catch (error: any) {
+      console.error('Get client stats error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: error.message
+      });
+    }
+  }
+
+  static async getClientOrders(req: Request, res: Response): Promise<void> {
+    try {
+      const clientId = req.params.id;
+      const orders = await pdfPrintModel.find({ clientId: clientId });
+
+      console.log("orders ------- ", orders);
+
+      res.json({
+        success: true,
+        data: {
+          orders
         }
       });
     } catch (error: any) {

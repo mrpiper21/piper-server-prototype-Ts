@@ -89,6 +89,15 @@ router.get('/stats',
 );
 
 /**
+ * @route   GET /api/clients/stats
+ * @desc    Get client statistics
+ * @access  Admin/Staff only (add role check middleware)
+ */
+router.get('/get-client-orders/:id',
+  ClientController.getClientOrders
+);
+
+/**
  * @route   GET /api/clients/:id
  * @desc    Get client by ID
  * @access  Admin/Staff or the client themselves (add role/ownership check)
