@@ -81,12 +81,13 @@ app.use("*", (req: Request, res: Response) => {
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
 	console.log(
 		`🚀 Printer Management System API server running on port ${PORT}`
 	);
 	console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 	
 	// Start keep-alive to prevent Render free tier spin-down
-	startKeepAlive();
+	// Pass server instance for cleanup on shutdown
+	startKeepAlive(server);
 });
