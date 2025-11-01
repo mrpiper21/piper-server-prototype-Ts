@@ -85,7 +85,7 @@ const server = app.listen(PORT, () => {
 	console.log(
 		`🚀 Printer Management System API server running on port ${PORT}`
 	);
-	console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+	console.log(`Environment: ${process.env.NODE_ENV}`);
 	
 	// Start keep-alive to prevent Render free tier spin-down
 	// Pass server instance for cleanup on shutdown
