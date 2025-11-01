@@ -1,6 +1,6 @@
 import express, { Router } from 'express';
+import type { Request, Response } from 'express';
 import multer from 'multer';
-import type { FileFilterCallback } from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -15,13 +15,13 @@ const __dirname = path.dirname(__filename);
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
+  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
     const uploadDir = path.join(__dirname, '../../uploads');
     // Ensure directory exists
     fs.mkdirSync(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
-  filename: (req, file, cb) => {
+  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
     // Generate unique filename
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     cb(null, `file-${uniqueSuffix}${path.extname(file.originalname)}`);
@@ -29,9 +29,9 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (
-  req: Express.Request,
+  req: Request,
   file: Express.Multer.File,
-  cb: FileFilterCallback
+  cb: multer.FileFilterCallback
 ): void => {
   // Allowed file types
   const allowedMimeTypes = [
@@ -62,7 +62,8 @@ const fileFilter = (
   if (allowedMimeTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error(`File type not allowed. Allowed types: ${allowedMimeTypes.join(', ')}`));
+    const error = new Error(`File type not allowed. Allowed types: ${allowedMimeTypes.join(', ')}`);
+    cb(error);
   }
 };
 
@@ -75,12 +76,12 @@ const upload = multer({
 });
 
 // Routes
-router.post('/submit/client/:id', upload.single('pdfFile'), (req, res) => PrinterController.submitPDF(req, res));
-router.get('/jobs', (req, res) => PrinterController.getPrintJobs(req, res));
-router.get('/jobs/:id', (req, res) => PrinterController.getPrintJob(req, res));
-router.put('/jobs/:id/status', (req, res) => PrinterController.updatePrintJobStatus(req, res));
-router.delete('/jobs/:id', (req, res) => PrinterController.deletePrintJob(req, res));
-router.get('/stats', (req, res) => PrinterController.getPrintStats(req, res));
-router.get('/jobs/filter', (req, res) => PrinterController.getPrintJobsByStatus(req, res));
+router.post('/submit/client/:id', upload.single('pdfFile'), (req: Request, res: Response) => PrinterController.submitPDF(req, res));
+router.get('/jobs', (req: Request, res: Response) => PrinterController.getPrintJobs(req, res));
+router.get('/jobs/:id', (req: Request, res: Response) => PrinterController.getPrintJob(req, res));
+router.put('/jobs/:id/status', (req: Request, res: Response) => PrinterController.updatePrintJobStatus(req, res));
+router.delete('/jobs/:id', (req: Request, res: Response) => PrinterController.deletePrintJob(req, res));
+router.get('/stats', (req: Request, res: Response) => PrinterController.getPrintStats(req, res));
+router.get('/jobs/filter', (req: Request, res: Response) => PrinterController.getPrintJobsByStatus(req, res));
 
 export default router;
