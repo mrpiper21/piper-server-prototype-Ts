@@ -93,14 +93,14 @@ export class ClientController {
       const { email, password } = req.body;
 
       // Find client with password using the static method
-      const client = await Client.findOne({ email, isActive: true }).select('+password');
-      if (!client) {
-        res.status(401).json({
-          success: false,
-          message: 'Invalid email or password'
-        });
-        return;
-      }
+      const client = await Client.findOne({ email }).select("+password");
+			if (!client) {
+				res.status(401).json({
+					success: false,
+					message: "Something went wrong",
+				});
+				return;
+			}
 
       // Check password
       const isPasswordValid = await client.comparePassword(password);
