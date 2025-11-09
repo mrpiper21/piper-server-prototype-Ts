@@ -35,10 +35,11 @@ router.get('/stats',
  * @desc    Get users by role
  * @access  Admin/Manager only
  */
-router.get('/role/:role', 
-  AuthController.checkRole([UserRole.ADMIN, UserRole.MANAGER]),
-  userValidation.getUsersByRole,
-  UserController.getUsersByRole
+router.get(
+	"/role/:role",
+	AuthController.checkRole([UserRole.ADMIN, UserRole.ADMIN]),
+	userValidation.getUsersByRole,
+	UserController.getUsersByRole
 );
 
 /**
@@ -46,10 +47,11 @@ router.get('/role/:role',
  * @desc    Get user by ID
  * @access  Admin/Manager only
  */
-router.get('/:id', 
-  AuthController.checkRole([UserRole.ADMIN, UserRole.MANAGER]),
-  userValidation.getUserById,
-  UserController.getUserById
+router.get(
+	"/:id",
+	AuthController.checkRole([UserRole.ADMIN, UserRole.ADMIN]),
+	userValidation.getUserById,
+	UserController.getUserById
 );
 
 /**
