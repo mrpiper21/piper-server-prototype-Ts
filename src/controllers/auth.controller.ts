@@ -34,7 +34,7 @@ export class AuthController {
         return;
       }
 
-      const { email, password, name, role = UserRole.CUSTOMER } = req.body;
+      const { email, password, name, role = UserRole.CLERK } = req.body;
 
       // Check if user already exists
       const existingUser = await User.findOne({ email });
@@ -172,7 +172,7 @@ export class AuthController {
    */
   static async updateProfile(req: Request, res: Response): Promise<void> {
     try {
-      const { name, email } = req.body;
+      const { name, email, location } = req.body;
       const userId = req.user?.userId;
 
       const user = await User.findById(userId);
@@ -199,6 +199,10 @@ export class AuthController {
 
       if (name) {
         user.name = name;
+      }
+
+      if (location) {
+        user.location = location;
       }
 
       await user.save();

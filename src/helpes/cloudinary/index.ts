@@ -1,5 +1,7 @@
 // Require the cloudinary library
 import { v2 as cloudinary } from 'cloudinary'
+import dotenv from 'dotenv';
+dotenv.config();
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -20,4 +22,4 @@ cloudinary.config({
 });
 
 // Log the configuration
-console.log(cloudinary.config(), 'Cloudinary configuration set');
+// console.log(cloudinary.config(), 'Cloudinary configuration set');

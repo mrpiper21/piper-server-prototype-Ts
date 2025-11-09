@@ -64,7 +64,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MANAGE_JOBS,
     Permission.SUBMIT_PRINTS,
     Permission.VIEW_AGENTS,
-    Permission.VIEW_OWN_JOBS
+    Permission.VIEW_OWN_JOBS,
+    Permission.MANAGE_USERS
   ],
   // [UserRole.TECHNICIAN]: [
   //   Permission.MAINTAIN_PRINTERS,
@@ -84,6 +85,11 @@ export interface IUser extends Document {
   password: string;
   name: string;
   role: UserRole;
+  location: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  }
   permissions: Permission[];
   isActive: boolean;
   lastLogin?: Date;
@@ -112,6 +118,20 @@ const userSchema = new Schema<IUser>({
     required: [true, 'Password is required'],
     minlength: [6, 'Password must be at least 6 characters'],
     select: false // Don't include password in queries by default
+  },
+  location: {
+    latitude: {
+      type: Number,
+      required: false,
+    },
+    longitude: {
+      type: Number,
+      required: false,
+    },
+    address: {
+      type: String,
+      required: false,
+    },
   },
   name: {
     type: String,

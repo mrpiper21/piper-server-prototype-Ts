@@ -18,6 +18,14 @@ class PrinterController {
 		try {
 			const file = req.file as any | undefined;
 			const body = req.body;
+			const clientId = req.params.id;
+			if (!clientId) {
+				res.status(400).json({
+					success: false,
+					message: "Client ID is required",
+				});
+				return;
+			}
 
 			if (!file) {
 				res.status(400).json({
@@ -103,6 +111,7 @@ class PrinterController {
 				quantity: parseInt(body.quantity, 10),
 				location: body.location,
 				description: body.description || "",
+				clientId: clientId,
 			};
 
 			// Add Cloudinary-specific fields if upload was successful

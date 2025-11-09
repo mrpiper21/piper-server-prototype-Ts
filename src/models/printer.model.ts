@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
 const PDFPrintSchema = new mongoose.Schema(
 	{
@@ -16,6 +16,11 @@ const PDFPrintSchema = new mongoose.Schema(
 		},
 		originalName: {
 			type: String,
+			required: true,
+		},
+		clientId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Client",
 			required: true,
 		},
 		status: {
