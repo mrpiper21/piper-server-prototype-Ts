@@ -86,6 +86,25 @@ router.delete('/:id',
 );
 
 /**
+ * @route   GET /api/users/my-clerks
+ * @desc    Get clerks for the current admin
+ * @access  Admin only
+ */
+router.get('/my-clerks/:adminId',
+  // AuthController.checkRole([UserRole.ADMIN]),
+  UserController.getMyClerks
+);
+/**
+ * @route   GET /api/users/my-clerks
+ * @desc    Get clerks for the current admin
+ * @access  Admin only
+ */
+router.put('/change-clerk-password/:clerkId',
+  // AuthController.checkRole([UserRole.ADMIN]),
+  UserController.changeClerkPassword
+);
+
+/**
  * @route   PUT /api/users/:id/reset-password
  * @desc    Reset user password
  * @access  Admin only

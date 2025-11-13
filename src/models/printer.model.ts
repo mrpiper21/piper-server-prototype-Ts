@@ -23,6 +23,12 @@ const PDFPrintSchema = new mongoose.Schema(
 			ref: "Client",
 			required: true,
 		},
+		adminId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "User",
+			required: true,
+			index: true,
+		},
 		status: {
 			type: String,
 			enum: ["pending", "processing", "completed", "failed"],
@@ -103,6 +109,7 @@ PDFPrintSchema.index({ status: 1, createdAt: 1 });
 PDFPrintSchema.index({ submittedBy: 1 });
 PDFPrintSchema.index({ location: 1 });
 PDFPrintSchema.index({ artwork: 1 });
+PDFPrintSchema.index({ adminId: 1, status: 1 }); // Index for querying jobs by admin
 
 const pdfPrintModel = mongoose.model('PDFPrint', PDFPrintSchema);
 

@@ -10,11 +10,24 @@ class DashboardController {
       const endOfDay = new Date(today);
       endOfDay.setHours(23, 59, 59, 999);
 
+      // Filter by adminId based on user role
+      const user = (req as any).user;
+      const adminIdFilter: any = {};
+      if (user) {
+        const mongoose = (await import('mongoose')).default;
+        if (user.role === 'clerk' && user.adminId) {
+          adminIdFilter.adminId = new mongoose.Types.ObjectId(user.adminId);
+        } else if (user.role === 'admin') {
+          adminIdFilter.adminId = new mongoose.Types.ObjectId(user.userId);
+        }
+      }
+
       const jobsToday = await pdfPrintModel.find({
+        ...adminIdFilter,
         createdAt: { $gte: today, $lte: endOfDay }
       });
 
-      const filter: any = {};
+      const filter: any = { ...adminIdFilter };
       if (req.query.selectedDate) {
         const selectedDate = new Date(req.query.selectedDate as string);
         selectedDate.setHours(0, 0, 0, 0);
@@ -53,6 +66,18 @@ class DashboardController {
       const days = 7;
       const result: any[] = [];
 
+      // Filter by adminId based on user role
+      const user = (req as any).user;
+      const adminIdFilter: any = {};
+      if (user) {
+        const mongoose = (await import('mongoose')).default;
+        if (user.role === 'clerk' && user.adminId) {
+          adminIdFilter.adminId = new mongoose.Types.ObjectId(user.adminId);
+        } else if (user.role === 'admin') {
+          adminIdFilter.adminId = new mongoose.Types.ObjectId(user.userId);
+        }
+      }
+
       for (let i = 0; i < days; i++) {
         const d = new Date(today);
         d.setDate(today.getDate() - i);
@@ -60,6 +85,7 @@ class DashboardController {
         const dayEnd = new Date(d);
         dayEnd.setHours(23, 59, 59, 999);
         const count = await pdfPrintModel.countDocuments({
+          ...adminIdFilter,
           createdAt: { $gte: dayStart, $lte: dayEnd }
         });
         result.push({ date: dayStart.toISOString().split('T')[0], count });
@@ -81,7 +107,21 @@ class DashboardController {
       d.setHours(0, 0, 0, 0);
       const endD = new Date(d);
       endD.setHours(23, 59, 59, 999);
+
+      // Filter by adminId based on user role
+      const user = (req as any).user;
+      const adminIdFilter: any = {};
+      if (user) {
+        const mongoose = (await import('mongoose')).default;
+        if (user.role === 'clerk' && user.adminId) {
+          adminIdFilter.adminId = new mongoose.Types.ObjectId(user.adminId);
+        } else if (user.role === 'admin') {
+          adminIdFilter.adminId = new mongoose.Types.ObjectId(user.userId);
+        }
+      }
+
       const jobs = await pdfPrintModel.find({
+        ...adminIdFilter,
         createdAt: { $gte: d, $lte: endD }
       });
       res.json({ success: true, data: jobs });
