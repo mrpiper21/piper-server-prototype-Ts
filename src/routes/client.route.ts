@@ -29,6 +29,15 @@ router.post('/login',
 );
 
 /**
+ * @route   GET /api/clients/get-print-stations
+ * @desc    Get all print stations (admins)
+ * @access  Public - Clients need to see available print stations
+ */
+router.get('/get-print-stations',
+  ClientController.getAllPrintStations
+);
+
+/**
  * Protected routes - Client Profile Management
  * All routes below require client authentication
  */
@@ -126,6 +135,12 @@ router.delete('/:id',
   clientValidation.deleteClient,
   ClientController.deleteClient
 );
+
+// /**
+//  * @route   GET /api/clients/get-client-orders/:id
+//  * @desc    Get client orders
+//  * @access  Client only
+//  */
 
 export default router;
 

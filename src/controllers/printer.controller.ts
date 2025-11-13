@@ -109,9 +109,7 @@ class PrinterController {
 
 			// Use Cloudinary data if available, otherwise use local file data
 			const printData: Record<string, any> = {
-				fileName: cloudinaryData
-					? path.basename(cloudinaryData.url)
-					: file.filename,
+				fileName: file.originalname,
 				filePath: cloudinaryData ? cloudinaryData.url : file.path,
 				fileSize: file.size,
 				originalName: file.originalname,

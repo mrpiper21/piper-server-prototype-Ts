@@ -64,7 +64,7 @@ export interface IUser extends Document {
 	email: string;
 	password: string;
 	name: string;
-	role: UserRole.ADMIN; // Users are only admins now
+	role: UserRole.ADMIN;
 	location: {
 		latitude: number;
 		longitude: number;
@@ -152,7 +152,6 @@ const userSchema = new Schema<IUser>(
 
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
-userSchema.index({ adminId: 1 });
 userSchema.pre("save", async function (next) {
 	if (!this.isModified("password")) return next();
 
