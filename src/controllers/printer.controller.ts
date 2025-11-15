@@ -12,6 +12,27 @@ const unlinkAsync = promisify(fs.unlink);
 
 class PrinterController {
 	/**
+	 * Helper method to build adminId filter based on user role
+	 * Clerks can only access jobs for their admin
+	 * Admins can only access their own jobs
+	 */
+	private async buildAdminIdFilter(user: any): Promise<Record<string, any>> {
+		const filter: Record<string, any> = {};
+
+		if (user) {
+			const mongoose = (await import("mongoose")).default;
+			if (user.adminId) {
+				// Clerks can only see jobs for their admin
+				filter.adminId = new mongoose.Types.ObjectId(user.adminId);
+			} else if (user.role === "admin" && user.userId) {
+				// Admins can see all their jobs
+				filter.adminId = new mongoose.Types.ObjectId(user.userId);
+			}
+		}
+
+		return filter;
+	}
+	/**
 	 * Submit PDF for printing
 	 */
 	async submitPDF(req: any, res: Response): Promise<void> {
@@ -56,7 +77,7 @@ class PrinterController {
 			}
 
 			// Validate adminId format
-			const mongoose = (await import('mongoose')).default;
+			const mongoose = (await import("mongoose")).default;
 			if (!mongoose.Types.ObjectId.isValid(body.adminId)) {
 				if (file && file.path) {
 					fs.unlinkSync(file.path);
@@ -222,17 +243,8 @@ class PrinterController {
 
 			// Filter by adminId based on user role
 			const user = (req as any).user;
-			if (user) {
-				if (user.role === 'clerk' && user.adminId) {
-					// Clerks can only see jobs for their admin
-					const mongoose = (await import('mongoose')).default;
-					filter.adminId = new mongoose.Types.ObjectId(user.adminId);
-				} else if (user.role === 'admin') {
-					// Admins can see all their jobs
-					const mongoose = (await import('mongoose')).default;
-					filter.adminId = new mongoose.Types.ObjectId(user.userId);
-				}
-			}
+			const adminIdFilter = await this.buildAdminIdFilter(user);
+			Object.assign(filter, adminIdFilter);
 
 			if (status) filter.status = status;
 			if (submittedBy) filter.submittedBy = submittedBy;
@@ -280,19 +292,14 @@ class PrinterController {
 		try {
 			const { id } = req.params;
 			const user = (req as any).user;
-			
+
 			// Build adminId filter
-			const adminIdFilter: any = {};
-			if (user) {
-				const mongoose = (await import('mongoose')).default;
-				if (user.role === 'clerk' && user.adminId) {
-					adminIdFilter.adminId = new mongoose.Types.ObjectId(user.adminId);
-				} else if (user.role === 'admin') {
-					adminIdFilter.adminId = new mongoose.Types.ObjectId(user.userId);
-				}
-			}
-			
-			const printJob = await pdfPrintModel.findOne({ _id: id, ...adminIdFilter });
+			const adminIdFilter = await this.buildAdminIdFilter(user);
+
+			const printJob = await pdfPrintModel.findOne({
+				_id: id,
+				...adminIdFilter,
+			});
 
 			if (!printJob) {
 				res.status(404).json({
@@ -325,17 +332,9 @@ class PrinterController {
 			const { id } = req.params;
 			const { status, errorMessage } = req.body;
 			const user = (req as any).user;
-			
+
 			// Build adminId filter
-			const adminIdFilter: any = {};
-			if (user) {
-				const mongoose = (await import('mongoose')).default;
-				if (user.role === 'clerk' && user.adminId) {
-					adminIdFilter.adminId = new mongoose.Types.ObjectId(user.adminId);
-				} else if (user.role === 'admin') {
-					adminIdFilter.adminId = new mongoose.Types.ObjectId(user.userId);
-				}
-			}
+			const adminIdFilter = await this.buildAdminIdFilter(user);
 
 			const validStatuses = ["pending", "processing", "completed", "failed"];
 			if (!validStatuses.includes(status)) {
@@ -348,7 +347,10 @@ class PrinterController {
 			}
 
 			// Get the print job before update to check for Cloudinary public_id and adminId
-			const existingPrintJob = await pdfPrintModel.findOne({ _id: id, ...adminIdFilter });
+			const existingPrintJob = await pdfPrintModel.findOne({
+				_id: id,
+				...adminIdFilter,
+			});
 
 			if (!existingPrintJob) {
 				res.status(404).json({
@@ -361,10 +363,23 @@ class PrinterController {
 			const updateData: Record<string, any> = { status };
 			if (errorMessage) updateData.errorMessage = errorMessage;
 
-			const printJob = await pdfPrintModel.findByIdAndUpdate(id, updateData, {
-				new: true,
-				runValidators: true,
-			});
+			// Update with adminId filter to ensure we only update jobs the user has access to
+			const printJob = await pdfPrintModel.findOneAndUpdate(
+				{ _id: id, ...adminIdFilter },
+				updateData,
+				{
+					new: true,
+					runValidators: true,
+				}
+			);
+
+			if (!printJob) {
+				res.status(404).json({
+					success: false,
+					message: "Print job not found or access denied",
+				});
+				return;
+			}
 
 			// Delete from Cloudinary if status is updated to "completed" and public_id exists
 			if (status === "completed" && existingPrintJob.cloudinaryPublicId) {
@@ -398,16 +413,26 @@ class PrinterController {
 
 	/**
 	 * Delete print job
+	 * Clerks can only delete jobs for their admin
+	 * Admins can only delete their own jobs
 	 */
 	async deletePrintJob(req: Request, res: Response): Promise<void> {
 		try {
 			const { id } = req.params;
-			const printJob = await pdfPrintModel.findById(id);
+			const user = (req as any).user;
+
+			// Build adminId filter
+			const adminIdFilter = await this.buildAdminIdFilter(user);
+
+			const printJob = await pdfPrintModel.findOne({
+				_id: id,
+				...adminIdFilter,
+			});
 
 			if (!printJob) {
 				res.status(404).json({
 					success: false,
-					message: "Print job not found",
+					message: "Print job not found or access denied",
 				});
 				return;
 			}
@@ -434,7 +459,8 @@ class PrinterController {
 				}
 			}
 
-			await pdfPrintModel.findByIdAndDelete(id);
+			// Delete with adminId filter to ensure we only delete jobs the user has access to
+			await pdfPrintModel.findOneAndDelete({ _id: id, ...adminIdFilter });
 
 			res.json({
 				success: true,
@@ -488,10 +514,20 @@ class PrinterController {
 
 	/**
 	 * Get print statistics
+	 * Clerks can only see stats for jobs submitted to their admin
+	 * Admins can only see stats for their own jobs
 	 */
 	async getPrintStats(req: Request, res: Response): Promise<void> {
 		try {
+			const user = (req as any).user;
+
+			// Build adminId filter
+			const adminIdFilter = await this.buildAdminIdFilter(user);
+
 			const stats = await pdfPrintModel.aggregate([
+				{
+					$match: adminIdFilter,
+				},
 				{
 					$group: {
 						_id: "$status",
@@ -501,8 +537,9 @@ class PrinterController {
 				},
 			]);
 
-			const totalJobs = await pdfPrintModel.countDocuments();
+			const totalJobs = await pdfPrintModel.countDocuments(adminIdFilter);
 			const completedJobs = await pdfPrintModel.countDocuments({
+				...adminIdFilter,
 				status: "completed",
 			});
 
@@ -540,17 +577,8 @@ class PrinterController {
 
 			// Filter by adminId based on user role
 			const user = (req as any).user;
-			if (user) {
-				if (user.role === 'clerk' && user.adminId) {
-					// Clerks can only see jobs for their admin
-					const mongoose = (await import('mongoose')).default;
-					filter.adminId = new mongoose.Types.ObjectId(user.adminId);
-				} else if (user.role === 'admin') {
-					// Admins can see all their jobs
-					const mongoose = (await import('mongoose')).default;
-					filter.adminId = new mongoose.Types.ObjectId(user.userId);
-				}
-			}
+			const adminIdFilter = await this.buildAdminIdFilter(user);
+			Object.assign(filter, adminIdFilter);
 
 			// Handle multiple statuses
 			if (status) {
@@ -580,8 +608,6 @@ class PrinterController {
 				.limit(options.limit * 1)
 				.skip((options.page - 1) * options.limit)
 				.sort(options.sort as any);
-
-			console.log("jobs ------- ", printJobs);
 
 			const total = await pdfPrintModel.countDocuments(filter);
 
