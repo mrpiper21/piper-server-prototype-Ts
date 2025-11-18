@@ -93,14 +93,19 @@ class PrinterController {
 			let cloudinaryData: { publicId: string; url: string } | null = null;
 			let useCloudinary = false;
 
+			// Determine resource type based on file MIME type
+			// PDFs should use "raw" to get raw/upload path, others use "auto"
+			const isPDF = file.mimetype === "application/pdf" || 
+			             file.originalname.toLowerCase().endsWith(".pdf");
+			const resourceType = isPDF ? "raw" : "auto";
+
 			try {
 				const uploadResult = await cloudinary.uploader.upload(file.path, {
-					resource_type: "auto",
+					resource_type: resourceType,
 					folder: "print-jobs",
 				});
 
 				if (uploadResult && uploadResult.public_id && uploadResult.secure_url) {
-					console.log("Cloudinary upload successful:", uploadResult.public_id);
 					cloudinaryData = {
 						publicId: uploadResult.public_id,
 						url: uploadResult.secure_url,
