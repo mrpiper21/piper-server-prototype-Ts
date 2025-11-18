@@ -263,7 +263,9 @@ class PrinterController {
 				.skip((pageNum - 1) * limitNum)
 				.sort({ createdAt: -1 });
 
-			const total = await pdfPrintModel.countDocuments(filter);
+			const total = await pdfPrintModel
+				.countDocuments(filter)
+				.populate("clientId");
 
 			res.json({
 				success: true,
