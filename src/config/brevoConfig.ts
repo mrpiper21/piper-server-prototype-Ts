@@ -12,7 +12,7 @@ const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 // Default sender configuration
 const DEFAULT_SENDER = {
-	name: process.env.BREVO_SENDER_NAME || "Printer Management System",
+	name: "Printer Station",
 	email: process.env.BREVO_SENDER_EMAIL || "noreply@example.com",
 };
 

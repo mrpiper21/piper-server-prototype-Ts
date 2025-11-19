@@ -11,6 +11,7 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import { connectDB } from "./db/connection.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
+import otpRoutes from "./routes/otp.route.js";
 import { startKeepAlive } from "./utils/keepAlive.js";
 
 // Load environment variables
@@ -47,6 +48,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/clients", clientRoutes);
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/otp", otpRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req: Request, res: Response) => {
