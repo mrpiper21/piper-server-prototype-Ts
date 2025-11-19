@@ -30,10 +30,12 @@ class DashboardController {
 			const user = (req as any).user;
 			const adminIdFilter = await this.buildAdminIdFilter(user);
 
-			const jobsToday = await pdfPrintModel.find({
-				...adminIdFilter,
-				createdAt: { $gte: today, $lte: endOfDay },
-			});
+			const jobsToday = await pdfPrintModel
+				.find({
+					...adminIdFilter,
+					createdAt: { $gte: today, $lte: endOfDay },
+				})
+				.populate("clientId");
 
 			const filter: any = { ...adminIdFilter };
 			if (req.query.selectedDate) {
@@ -44,7 +46,7 @@ class DashboardController {
 				filter.createdAt = { $gte: selectedDate, $lte: endSelectedDate };
 			}
 
-			const filteredJobs = await pdfPrintModel.find(filter);
+			const filteredJobs = await pdfPrintModel.find(filter).populate("clientId");
 
 			const completedJobs = filteredJobs.filter(
 				(j) => j.status === "completed"
@@ -127,7 +129,7 @@ class DashboardController {
 			const jobs = await pdfPrintModel.find({
 				...adminIdFilter,
 				createdAt: { $gte: d, $lte: endD },
-			});
+			}).populate("clientId");
 			res.json({ success: true, data: jobs });
 		} catch (err) {
 			res
