@@ -1,7 +1,12 @@
 import type { Request, Response } from 'express';
 import User, { UserRole, Permission } from '../models/user.model.js';
 import Clerk from "../models/clerk.model.js";
-import { validationResult } from "express-validator";
+// import { validationResult } from "express-validator";
+import resend from "../config/resenConfig.js";
+import {
+	generateClerkWelcomeEmail,
+	generateClerkWelcomeEmailText,
+} from "../utils/emailTemplates.js";
 
 export class UserController {
 	/**
@@ -168,9 +173,6 @@ export class UserController {
 				return;
 			}
 
-			// Create new clerk using Clerk model
-			// The password will be automatically hashed by the pre-save middleware
-			// using bcrypt with salt rounds of 12 (as defined in clerk.model.ts)
 			const clerk = new Clerk({
 				email,
 				password, // Will be hashed by pre-save middleware
@@ -182,12 +184,51 @@ export class UserController {
 
 			await clerk.save();
 
+			// Send welcome email with credentials
+			try {
+				const emailHtml = generateClerkWelcomeEmail({
+					name: name,
+					email: email,
+					temporaryPassword: password,
+					adminName: admin.name,
+				});
+
+				const emailText = generateClerkWelcomeEmailText({
+					name: name,
+					email: email,
+					temporaryPassword: password,
+					adminName: admin.name,
+				});
+
+				const { data: emailData, error: emailError } = await resend.emails.send(
+					{
+						from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+						to: email,
+						subject: `Welcome to ${
+							process.env.APP_NAME || "Printer Management System"
+						} - Your Account Details`,
+						html: emailHtml,
+						text: emailText,
+					}
+				);
+
+				if (emailError) {
+					console.error("Error sending welcome email:", emailError);
+					// Don't fail the request if email fails, just log it
+				} else {
+					console.log("Welcome email sent successfully:", emailData);
+				}
+			} catch (emailErr) {
+				console.error("Error sending welcome email:", emailErr);
+				// Don't fail the request if email fails, just log it
+			}
+
 			res.status(201).json({
 				success: true,
-				message: "Clerk account created successfully",
+				message: "Clerk account created successfully. Welcome email sent.",
 				data: {
 					clerk: clerk.toJSON(),
-					temporaryPassword: password, // Return the temporary password (in production, send via email)
+					// Don't return password in response - it's been sent via email
 				},
 			});
 		} catch (error) {
