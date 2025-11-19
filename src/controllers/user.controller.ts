@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import User, { UserRole, Permission } from '../models/user.model.js';
 import Clerk from "../models/clerk.model.js";
 // import { validationResult } from "express-validator";
-import resend from "../config/resenConfig.js";
+import brevo from "../config/brevoConfig.js";
 import {
 	generateClerkWelcomeEmail,
 	generateClerkWelcomeEmailText,
@@ -200,9 +200,9 @@ export class UserController {
 					adminName: admin.name,
 				});
 
-				const { data: emailData, error: emailError } = await resend.emails.send(
+				const { data: emailData, error: emailError } = await brevo.emails.send(
 					{
-						from: process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev",
+						from: process.env.BREVO_SENDER_EMAIL || process.env.RESEND_FROM_EMAIL || "noreply@example.com",
 						to: email,
 						subject: `Welcome to ${
 							process.env.APP_NAME || "Printer Management System"
