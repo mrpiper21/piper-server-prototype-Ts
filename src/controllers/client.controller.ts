@@ -632,15 +632,96 @@ export class ClientController {
 
 	public static async getAllPrintStations(req: Request, res: Response): Promise<void> {
 		try {
+			const { latitude, longitude, maxDistance } = req.query;
+
 			// Get only active admins (print stations) with only name, location, and email
-			const printStations = await User.find({ isActive: true })
+			// Filter out stations without location data
+			const query: any = {
+				isActive: true,
+				"location.latitude": { $exists: true, $ne: null },
+				"location.longitude": { $exists: true, $ne: null },
+			};
+
+			let printStations = await User.find(query)
 				.select("name email location")
 				.sort({ name: 1 });
 
-			res.json({
-				success: true,
-				data: { printStations },
-			});
+			// If location coordinates are provided, filter by proximity
+			if (latitude && longitude) {
+				const userLat = parseFloat(latitude as string);
+				const userLng = parseFloat(longitude as string);
+				const maxDistKm = maxDistance
+					? parseFloat(maxDistance as string)
+					: undefined;
+
+				// Validate coordinates
+				if (isNaN(userLat) || isNaN(userLng)) {
+					res.status(400).json({
+						success: false,
+						message: "Invalid latitude or longitude",
+					});
+					return;
+				}
+
+				// Calculate distance for each print station and filter
+				const stationsWithDistance = printStations
+					.map((station) => {
+						const stationLat = station.location?.latitude;
+						const stationLng = station.location?.longitude;
+
+						if (!stationLat || !stationLng) {
+							return null;
+						}
+
+						// Haversine formula to calculate distance in kilometers
+						const R = 6371; // Earth's radius in kilometers
+						const dLat = ClientController.degreesToRadians(
+							stationLat - userLat
+						);
+						const dLng = ClientController.degreesToRadians(
+							stationLng - userLng
+						);
+						const a =
+							Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+							Math.cos(ClientController.degreesToRadians(userLat)) *
+								Math.cos(ClientController.degreesToRadians(stationLat)) *
+								Math.sin(dLng / 2) *
+								Math.sin(dLng / 2);
+						const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+						const distance = R * c;
+
+						// Filter by maxDistance if provided
+						if (maxDistKm && distance > maxDistKm) {
+							return null;
+						}
+
+						return {
+							...station.toObject(),
+							distance: parseFloat(distance.toFixed(2)), // Round to 2 decimal places
+						};
+					})
+					.filter((station) => station !== null) as any[];
+
+				// Sort by distance (nearest first)
+				stationsWithDistance.sort((a, b) => a.distance - b.distance);
+
+				res.json({
+					success: true,
+					data: {
+						printStations: stationsWithDistance,
+						userLocation: {
+							latitude: userLat,
+							longitude: userLng,
+						},
+					},
+				});
+			} else {
+				// No location provided, return all stations
+				res.json({
+					success: true,
+					data: { printStations },
+				});
+			}
 		} catch (error: any) {
 			console.error("Get all print stations error:", error);
 			res.status(500).json({
@@ -648,5 +729,12 @@ export class ClientController {
 				message: "Internal server error",
 			});
 		}
+	}
+
+	/**
+	 * Helper method to convert degrees to radians
+	 */
+	private static degreesToRadians(degrees: number): number {
+		return degrees * (Math.PI / 180);
 	}
 }
