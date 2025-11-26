@@ -5,8 +5,10 @@ import pdfPrintModel from '../models/printer.model.js';
 import path from 'path';
 import axios from "axios"
 import uploadToFileStack from '../helpes/uploadToFileStack.js';
-import "../helpes/cloudinary/index.js"; // Initialize Cloudinary configuration
-import { v2 as cloudinary } from "cloudinary";
+import {
+	cloudinary,
+	isCloudinaryConfigured,
+} from "../helpes/cloudinary/index.js";
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -89,48 +91,58 @@ class PrinterController {
 				return;
 			}
 
-			// Upload file to Cloudinary
+			// Upload file to Cloudinary (only if configured)
 			let cloudinaryData: { publicId: string; url: string } | null = null;
 			let useCloudinary = false;
 
-			// Determine resource type based on file MIME type
-			// PDFs should use "raw" to get raw/upload path, others use "auto"
-			const isPDF = file.mimetype === "application/pdf" || 
-			             file.originalname.toLowerCase().endsWith(".pdf");
-			const resourceType = isPDF ? "raw" : "auto";
+			// Only attempt Cloudinary upload if it's configured
+			if (isCloudinaryConfigured()) {
+				// Determine resource type based on file MIME type
+				// PDFs should use "raw" to get raw/upload path, others use "auto"
+				const isPDF =
+					file.mimetype === "application/pdf" ||
+					file.originalname.toLowerCase().endsWith(".pdf");
+				const resourceType = isPDF ? "raw" : "auto";
 
-			try {
-				const uploadResult = await cloudinary.uploader.upload(file.path, {
-					resource_type: resourceType,
-					folder: "print-jobs",
-				});
+				try {
+					const uploadResult = await cloudinary.uploader.upload(file.path, {
+						resource_type: resourceType,
+						folder: "print-jobs",
+					});
 
-				if (uploadResult && uploadResult.public_id && uploadResult.secure_url) {
-					cloudinaryData = {
-						publicId: uploadResult.public_id,
-						url: uploadResult.secure_url,
-					};
-					useCloudinary = true;
+					if (
+						uploadResult &&
+						uploadResult.public_id &&
+						uploadResult.secure_url
+					) {
+						cloudinaryData = {
+							publicId: uploadResult.public_id,
+							url: uploadResult.secure_url,
+						};
+						useCloudinary = true;
 
-					// Delete local file after successful upload
-					try {
-						fs.unlinkSync(file.path);
-					} catch (deleteError) {
+						// Delete local file after successful upload
+						try {
+							fs.unlinkSync(file.path);
+						} catch (deleteError) {
+							console.warn(
+								"Failed to delete local file after Cloudinary upload:",
+								deleteError
+							);
+						}
+					} else {
 						console.warn(
-							"Failed to delete local file after Cloudinary upload:",
-							deleteError
+							"Cloudinary upload returned invalid data:",
+							uploadResult
 						);
+						useCloudinary = false;
 					}
-				} else {
-					console.warn(
-						"Cloudinary upload returned invalid data:",
-						uploadResult
-					);
+				} catch (error: any) {
+					console.warn("Cloudinary upload failed, using local file:", error);
 					useCloudinary = false;
 				}
-			} catch (error: any) {
-				console.warn("Cloudinary upload failed, using local file:", error);
-				useCloudinary = false;
+			} else {
+				console.log("Cloudinary not configured, using local file storage");
 			}
 
 			// Use Cloudinary data if available, otherwise use local file data
@@ -389,7 +401,11 @@ class PrinterController {
 			}
 
 			// Delete from Cloudinary if status is updated to "completed" and public_id exists
-			if (status === "completed" && existingPrintJob.cloudinaryPublicId) {
+			if (
+				status === "completed" &&
+				existingPrintJob.cloudinaryPublicId &&
+				isCloudinaryConfigured()
+			) {
 				try {
 					await cloudinary.uploader.destroy(
 						existingPrintJob.cloudinaryPublicId
@@ -445,7 +461,7 @@ class PrinterController {
 			}
 
 			// Delete from Cloudinary if public_id exists
-			if (printJob.cloudinaryPublicId) {
+			if (printJob.cloudinaryPublicId && isCloudinaryConfigured()) {
 				try {
 					await cloudinary.uploader.destroy(printJob.cloudinaryPublicId);
 					console.log(
@@ -498,7 +514,7 @@ class PrinterController {
 			await pdfPrint.save();
 
 			// Delete from Cloudinary if public_id exists
-			if (pdfPrint.cloudinaryPublicId) {
+			if (pdfPrint.cloudinaryPublicId && isCloudinaryConfigured()) {
 				try {
 					await cloudinary.uploader.destroy(pdfPrint.cloudinaryPublicId);
 					console.log(

@@ -12,7 +12,7 @@ import dotenv from "dotenv";
 import { connectDB } from "./db/connection.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
 import otpRoutes from "./routes/otp.route.js";
-import { startKeepAlive } from "./utils/keepAlive.js";
+// import { startKeepAlive } from "./utils/keepAlive.js";
 
 // Load environment variables
 dotenv.config();
@@ -95,5 +95,5 @@ const server = app.listen(PORT, () => {
 	
 	// Start keep-alive to prevent Render free tier spin-down
 	// Pass server instance for cleanup on shutdown
-	startKeepAlive(server);
+	// startKeepAlive(server);
 });
