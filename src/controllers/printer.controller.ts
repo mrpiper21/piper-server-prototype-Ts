@@ -9,6 +9,7 @@ import {
 	cloudinary,
 	isCloudinaryConfigured,
 } from "../helpes/cloudinary/index.js";
+import { UserRole } from "../models/shared/enums.js";
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -385,7 +386,11 @@ class PrinterController {
 			// Update with adminId filter to ensure we only update jobs the user has access to
 			const printJob = await pdfPrintModel.findOneAndUpdate(
 				{ _id: id, ...adminIdFilter },
-				{ ...updateData, executedBy: user._id, executedByModel: user.role },
+				{
+					...updateData,
+					executedBy: user._id,
+					executedByModel: user.role === UserRole.ADMIN ? "User" : "Clerk",
+				},
 				{
 					new: true,
 					runValidators: true,

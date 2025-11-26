@@ -116,7 +116,7 @@ export class UserController {
 			// 	return;
 			// }
 
-			const { email, password, name, permissions } = req.body;
+			const { email, password, name, permissions, role } = req.body;
 			const adminId = req.user?.userId;
 
 			console.log(adminId, "adminId");
@@ -178,6 +178,7 @@ export class UserController {
 				email,
 				password, // Will be hashed by pre-save middleware
 				name,
+				role,
 				adminId: new mongoose.Types.ObjectId(adminId),
 				permissions: permissions || [],
 				isTemporaryPassword: true,

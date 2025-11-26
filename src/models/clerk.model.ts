@@ -9,6 +9,7 @@ export interface IClerk extends Document {
 	email: string;
 	password: string;
 	name: string;
+	role: UserRole.CLERK;
 	adminId: mongoose.Types.ObjectId; // Reference to admin who created this clerk
 	location: {
 		latitude: number;
@@ -74,6 +75,12 @@ const clerkSchema = new Schema<IClerk>(
 			ref: "User", // Reference to Admin (User model)
 			required: [true, "Admin ID is required"],
 			index: true,
+		},
+		role: {
+			type: String,
+			enum: [UserRole.CLERK],
+			required: [true, "Role is required"],
+			default: UserRole.CLERK,
 		},
 		permissions: [
 			{
