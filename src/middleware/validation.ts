@@ -1,5 +1,5 @@
 import { body, param, query } from 'express-validator';
-import { UserRole, Permission } from '../models/user.model.js';
+import { UserRole, Permission } from '../models/shared/enums.js';
 
 export const authValidation = {
   register: [

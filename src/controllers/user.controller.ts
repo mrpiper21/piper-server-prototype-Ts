@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
-import User, { UserRole, Permission } from '../models/user.model.js';
+import User from '../models/user.model.js';
+import { UserRole, Permission } from '../models/shared/enums.js';
 import Clerk from "../models/clerk.model.js";
 // import { validationResult } from "express-validator";
 import brevo from "../config/brevoConfig.js";

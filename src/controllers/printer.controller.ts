@@ -385,7 +385,7 @@ class PrinterController {
 			// Update with adminId filter to ensure we only update jobs the user has access to
 			const printJob = await pdfPrintModel.findOneAndUpdate(
 				{ _id: id, ...adminIdFilter },
-				updateData,
+				{ ...updateData, executedBy: user._id, executedByModel: user.role },
 				{
 					new: true,
 					runValidators: true,

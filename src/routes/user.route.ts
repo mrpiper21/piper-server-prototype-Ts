@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { UserController } from '../controllers/user.controller.js';
 import { AuthController } from '../controllers/auth.controller.js';
 import { userValidation } from '../middleware/validation.js';
-import { Permission, UserRole } from '../models/user.model.js';
+import { Permission, UserRole } from '../models/shared/enums.js';
 
 const router = Router();
 

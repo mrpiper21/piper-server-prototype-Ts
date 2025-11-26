@@ -1,64 +1,9 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { UserRole, Permission, ROLE_PERMISSIONS } from './shared/enums.js';
 
-// User roles enum
-export enum UserRole {
-	ADMIN = "admin",
-	CLERK = "clerk",
-}
-
-// User permissions enum
-export enum Permission {
-	// Admin permissions
-	MANAGE_USERS = "manage_users",
-	VIEW_ANALYTICS = "view_analytics",
-	MANAGE_SYSTEM = "manage_system",
-	VIEW_ALL_JOBS = "view_all_jobs",
-
-	// Clerk permissions
-	MANAGE_JOBS = "manage_jobs",
-	SUBMIT_PRINTS = "submit_prints",
-	VIEW_AGENTS = "view_agents",
-
-	// Manager permissions
-	VIEW_REPORTS = "view_reports",
-	MANAGE_AGENTS = "manage_agents",
-
-	// Technician permissions
-	MAINTAIN_PRINTERS = "maintain_printers",
-	VIEW_LOGS = "view_logs",
-
-	// Customer permissions
-	SUBMIT_JOBS = "submit_jobs",
-	VIEW_OWN_JOBS = "view_own_jobs",
-}
-
-// Role-based permissions mapping
-export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-	[UserRole.ADMIN]: [
-		Permission.MANAGE_USERS,
-		Permission.VIEW_ANALYTICS,
-		Permission.MANAGE_SYSTEM,
-		Permission.VIEW_ALL_JOBS,
-		Permission.MANAGE_JOBS,
-		Permission.SUBMIT_PRINTS,
-		Permission.VIEW_AGENTS,
-		Permission.VIEW_REPORTS,
-		Permission.MANAGE_AGENTS,
-		Permission.MAINTAIN_PRINTERS,
-		Permission.VIEW_LOGS,
-	],
-	[UserRole.CLERK]: [
-		Permission.MANAGE_JOBS,
-		Permission.SUBMIT_PRINTS,
-		// Permission.VIEW_AGENTS,
-		Permission.VIEW_OWN_JOBS,
-		Permission.MANAGE_USERS,
-	],
-};
-
-// User interface (for Admins only)
+// User interface (for Admins/Print Stations)
 export interface IUser extends Document {
 	_id: string;
 	email: string;
@@ -150,8 +95,12 @@ const userSchema = new Schema<IUser>(
 	}
 );
 
+// Indexes for better query performance
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
+userSchema.index({ email: 1 });
+
+// Pre-save middleware to hash password
 userSchema.pre("save", async function (next) {
 	if (!this.isModified("password")) return next();
 
@@ -218,23 +167,23 @@ userSchema.statics.findByEmailWithPassword = function (email: string) {
 	return this.findOne({ email, isActive: true }).select("+password");
 };
 
-// Static method to create admin user
-userSchema.statics.createAdmin = async function (userData: {
+// Static method to create user (admin)
+userSchema.statics.createUser = async function (userData: {
 	email: string;
 	password: string;
 	name: string;
 }) {
-	const admin = new this({
+	const user = new this({
 		...userData,
 		role: UserRole.ADMIN,
 	});
 
-	await admin.save();
-	return admin;
+	await user.save();
+	return user;
 };
 
-// Static method to get all admins
-userSchema.statics.getAllAdmins = function () {
+// Static method to get all users (admins)
+userSchema.statics.getAllUsers = function () {
 	return this.find({ role: UserRole.ADMIN, isActive: true }).select(
 		"-password"
 	);
@@ -257,15 +206,16 @@ userSchema.virtual("profile").get(function () {
 // Define interface for static methods
 interface IUserModel extends mongoose.Model<IUser> {
 	findByEmailWithPassword(email: string): Promise<IUser | null>;
-	createAdmin(userData: {
+	createUser(userData: {
 		email: string;
 		password: string;
 		name: string;
 	}): Promise<IUser>;
-	getAllAdmins(): Promise<IUser[]>;
+	getAllUsers(): Promise<IUser[]>;
 }
 
 // Create and export the model
+// Collection name is "User" to maintain data consistency
 const User = mongoose.model<IUser, IUserModel>("User", userSchema);
 
 export default User;

@@ -1,7 +1,8 @@
 import type { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
 import jwt from 'jsonwebtoken';
-import User, { UserRole, type Permission } from '../models/user.model.js';
+import User from "../models/user.model.js";
+import { UserRole, type Permission } from "../models/shared/enums.js";
 import Clerk from "../models/clerk.model.js";
 
 // Extend Express Request interface to include user
@@ -102,7 +103,6 @@ export class AuthController {
 			);
 
 			console.log(user, "user found");
-			// let isClerk = false;
 
 			if (!user) {
 				const clerk = await Clerk.findOne({ email, isActive: true }).select(
@@ -150,7 +150,7 @@ export class AuthController {
 				return;
 			}
 
-			// Check password for admin
+			// Check password for user
 			const isPasswordValid = await user.comparePassword(password);
 			if (!isPasswordValid) {
 				res.status(401).json({

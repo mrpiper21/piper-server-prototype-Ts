@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import { validationResult } from 'express-validator';
-import Client from '../models/client.model.js';
+import { validationResult } from "express-validator";
+import Client from "../models/client.model.js";
 import jwt from 'jsonwebtoken';
 import pdfPrintModel from '../models/printer.model.js';
 import mongoose from 'mongoose';
@@ -630,7 +630,10 @@ export class ClientController {
 		}
 	};
 
-	public static async getAllPrintStations(req: Request, res: Response): Promise<void> {
+	public static async getAllPrintStations(
+		req: Request,
+		res: Response
+	): Promise<void> {
 		try {
 			const { latitude, longitude, maxDistance } = req.query;
 

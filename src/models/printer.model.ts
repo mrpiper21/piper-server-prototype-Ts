@@ -94,6 +94,14 @@ const PDFPrintSchema = new mongoose.Schema(
 			type: String,
 			default: "",
 		},
+		executedByModel: {
+			type: String,
+			enum: ["Clerk", "Admin"],
+		},
+		executedBy: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "executedByModel",
+		},
 		submittedBy: {
 			type: String,
 			default: "frontend-user",

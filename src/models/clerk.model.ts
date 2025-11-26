@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { Permission, ROLE_PERMISSIONS, UserRole } from "./user.model.js";
+import { Permission, ROLE_PERMISSIONS, UserRole } from "./shared/enums.js";
 
 // Clerk interface
 export interface IClerk extends Document {
