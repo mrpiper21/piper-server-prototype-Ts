@@ -652,11 +652,6 @@ export class ClientController {
 				.lean()
 				.sort({ name: 1 });
 
-			console.log(
-				"printStations -------",
-				JSON.stringify(printStations, null, 2)
-			);
-
 			// If location coordinates are provided, filter by proximity
 			if (latitude && longitude) {
 				const userLat = parseFloat(latitude as string);
