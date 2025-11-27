@@ -1,10 +1,78 @@
 import { Router } from 'express';
-import { UserController } from '../controllers/user.controller.js';
-import { AuthController } from '../controllers/auth.controller.js';
-import { userValidation } from '../middleware/validation.js';
-import { Permission, UserRole } from '../models/shared/enums.js';
+import type { Request } from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from "url";
+import { UserController } from "../controllers/user.controller.js";
+import { AuthController } from "../controllers/auth.controller.js";
+import { userValidation } from "../middleware/validation.js";
+import { Permission, UserRole } from "../models/shared/enums.js";
 
 const router = Router();
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure multer for image uploads
+const storage = multer.diskStorage({
+	destination: (
+		req: Request,
+		file: Express.Multer.File,
+		cb: (error: Error | null, destination: string) => void
+	) => {
+		const uploadDir = path.join(__dirname, "../../uploads");
+		// Ensure directory exists
+		fs.mkdirSync(uploadDir, { recursive: true });
+		cb(null, uploadDir);
+	},
+	filename: (
+		req: Request,
+		file: Express.Multer.File,
+		cb: (error: Error | null, filename: string) => void
+	) => {
+		// Generate unique filename
+		const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+		cb(
+			null,
+			`business-cover-${uniqueSuffix}${path.extname(file.originalname)}`
+		);
+	},
+});
+
+const imageFileFilter = (
+	req: Request,
+	file: Express.Multer.File,
+	cb: multer.FileFilterCallback
+): void => {
+	// Allowed image MIME types
+	const allowedMimeTypes = [
+		"image/jpeg",
+		"image/jpg",
+		"image/png",
+		"image/gif",
+		"image/webp",
+		"image/bmp",
+	];
+
+	if (allowedMimeTypes.includes(file.mimetype)) {
+		cb(null, true);
+	} else {
+		const error = new Error(
+			`File type not allowed. Allowed types: ${allowedMimeTypes.join(", ")}`
+		);
+		cb(error);
+	}
+};
+
+const upload = multer({
+	storage,
+	fileFilter: imageFileFilter,
+	limits: {
+		fileSize: 10 * 1024 * 1024, // 10MB limit for images
+	},
+});
 
 // Apply authentication middleware to all routes
 router.use(AuthController.verifyToken);
@@ -14,10 +82,11 @@ router.use(AuthController.verifyToken);
  * @desc    Get all users with pagination and filtering
  * @access  Admin only
  */
-router.get('/', 
-  AuthController.checkPermission(Permission.MANAGE_USERS),
-  userValidation.getAllUsers,
-  UserController.getAllUsers
+router.get(
+	"/",
+	AuthController.checkPermission(Permission.MANAGE_USERS),
+	userValidation.getAllUsers,
+	UserController.getAllUsers
 );
 
 /**
@@ -25,9 +94,10 @@ router.get('/',
  * @desc    Get user statistics
  * @access  Admin only
  */
-router.get('/stats', 
-  AuthController.checkPermission(Permission.MANAGE_USERS),
-  UserController.getUserStats
+router.get(
+	"/stats",
+	AuthController.checkPermission(Permission.MANAGE_USERS),
+	UserController.getUserStats
 );
 
 /**
@@ -35,10 +105,11 @@ router.get('/stats',
  * @desc    Get users by role
  * @access  Admin only
  */
-router.get('/role/:role', 
-  AuthController.checkRole([UserRole.ADMIN]),
-  userValidation.getUsersByRole,
-  UserController.getUsersByRole
+router.get(
+	"/role/:role",
+	AuthController.checkRole([UserRole.ADMIN]),
+	userValidation.getUsersByRole,
+	UserController.getUsersByRole
 );
 
 /**
@@ -46,10 +117,11 @@ router.get('/role/:role',
  * @desc    Get user by ID
  * @access  Admin only
  */
-router.get('/:id', 
-  AuthController.checkRole([UserRole.ADMIN]),
-  userValidation.getUserById,
-  UserController.getUserById
+router.get(
+	"/:id",
+	AuthController.checkRole([UserRole.ADMIN]),
+	userValidation.getUserById,
+	UserController.getUserById
 );
 
 /**
@@ -57,10 +129,11 @@ router.get('/:id',
  * @desc    Create new user
  * @access  Admin only
  */
-router.post('/', 
-  AuthController.checkPermission(Permission.MANAGE_USERS),
-  userValidation.createUser,
-  UserController.createUser
+router.post(
+	"/",
+	AuthController.checkPermission(Permission.MANAGE_USERS),
+	userValidation.createUser,
+	UserController.createUser
 );
 
 /**
@@ -68,10 +141,12 @@ router.post('/',
  * @desc    Update user
  * @access  Admin only
  */
-router.put('/:id', 
-  AuthController.checkPermission(Permission.MANAGE_USERS),
-  userValidation.updateUser,
-  UserController.updateUser
+router.put(
+	"/:id",
+	AuthController.checkPermission(Permission.MANAGE_USERS),
+	upload.single("businessCoverImage"),
+	userValidation.updateUser,
+	UserController.updateUser
 );
 
 /**

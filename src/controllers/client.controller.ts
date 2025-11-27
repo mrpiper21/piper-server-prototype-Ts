@@ -646,8 +646,16 @@ export class ClientController {
 			};
 
 			let printStations = await User.find(query)
-				.select("name email location")
+				.select(
+					"name email location businessName businessPhone websiteUrl businessCoverImage _id createdAt"
+				)
+				.lean()
 				.sort({ name: 1 });
+
+			console.log(
+				"printStations -------",
+				JSON.stringify(printStations, null, 2)
+			);
 
 			// If location coordinates are provided, filter by proximity
 			if (latitude && longitude) {
@@ -699,7 +707,15 @@ export class ClientController {
 						}
 
 						return {
-							...station.toObject(),
+							_id: station._id,
+							name: station.name,
+							email: station.email,
+							location: station.location,
+							businessName: station.businessName || null,
+							businessPhone: station.businessPhone || null,
+							websiteUrl: station.websiteUrl || null,
+							businessCoverImage: station.businessCoverImage || null,
+							createdAt: station.createdAt,
 							distance: parseFloat(distance.toFixed(2)), // Round to 2 decimal places
 						};
 					})
@@ -720,9 +736,22 @@ export class ClientController {
 				});
 			} else {
 				// No location provided, return all stations
+				// Ensure all fields are explicitly included in the response
+				const formattedStations = printStations.map((station) => ({
+					_id: station._id,
+					name: station.name,
+					email: station.email,
+					location: station.location,
+					businessName: station.businessName || null,
+					businessPhone: station.businessPhone || null,
+					websiteUrl: station.websiteUrl || null,
+					businessCoverImage: station.businessCoverImage || null,
+					createdAt: station.createdAt,
+				}));
+
 				res.json({
 					success: true,
-					data: { printStations },
+					data: { printStations: formattedStations },
 				});
 			}
 		} catch (error: any) {

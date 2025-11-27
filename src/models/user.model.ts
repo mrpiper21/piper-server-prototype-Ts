@@ -15,6 +15,10 @@ export interface IUser extends Document {
 		longitude: number;
 		address: string;
 	};
+	businessName: string;
+	businessPhone: string;
+	businessCoverImage?: string;
+	websiteUrl: string;
 	permissions: Permission[];
 	isActive: boolean;
 	lastLogin?: Date;
@@ -31,6 +35,12 @@ export interface IUser extends Document {
 // User schema
 const userSchema = new Schema<IUser>(
 	{
+		name: {
+			type: String,
+			required: [true, "Name is required"],
+			trim: true,
+			maxlength: [100, "Name cannot exceed 100 characters"],
+		},
 		email: {
 			type: String,
 			required: [true, "Email is required"],
@@ -62,11 +72,21 @@ const userSchema = new Schema<IUser>(
 				required: false,
 			},
 		},
-		name: {
+		businessName: {
 			type: String,
-			required: [true, "Name is required"],
-			trim: true,
-			maxlength: [100, "Name cannot exceed 100 characters"],
+			required: false,
+		},
+		websiteUrl: {
+			type: String,
+			required: false,
+		},
+		businessPhone: {
+			type: String,
+			required: false,
+		},
+		businessCoverImage: {
+			type: String,
+			required: false,
 		},
 		role: {
 			type: String,
@@ -98,7 +118,7 @@ const userSchema = new Schema<IUser>(
 // Indexes for better query performance
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
-userSchema.index({ email: 1 });
+// Note: email index is already created by unique: true constraint
 
 // Pre-save middleware to hash password
 userSchema.pre("save", async function (next) {

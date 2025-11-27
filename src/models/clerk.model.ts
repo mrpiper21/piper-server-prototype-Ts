@@ -74,7 +74,6 @@ const clerkSchema = new Schema<IClerk>(
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "User", // Reference to Admin (User model)
 			required: [true, "Admin ID is required"],
-			index: true,
 		},
 		role: {
 			type: String,
@@ -110,7 +109,7 @@ const clerkSchema = new Schema<IClerk>(
 // Indexes for better query performance
 clerkSchema.index({ adminId: 1 });
 clerkSchema.index({ isActive: 1 });
-clerkSchema.index({ email: 1 });
+// Note: email index is already created by unique: true constraint
 
 // Pre-save middleware to hash password
 clerkSchema.pre("save", async function (next) {

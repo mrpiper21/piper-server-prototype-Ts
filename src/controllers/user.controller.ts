@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
-import User from '../models/user.model.js';
-import { UserRole, Permission } from '../models/shared/enums.js';
+import fs from "fs";
+import User from "../models/user.model.js";
+import { UserRole, Permission } from "../models/shared/enums.js";
 import Clerk from "../models/clerk.model.js";
 // import { validationResult } from "express-validator";
 import brevo from "../config/brevoConfig.js";
@@ -8,6 +9,10 @@ import {
 	generateClerkWelcomeEmail,
 	generateClerkWelcomeEmailText,
 } from "../utils/emailTemplates.js";
+import {
+	cloudinary,
+	isCloudinaryConfigured,
+} from "../helpes/cloudinary/index.js";
 
 export class UserController {
 	/**
@@ -202,17 +207,18 @@ export class UserController {
 					adminName: admin.name,
 				});
 
-				const { data: emailData, error: emailError } = await brevo.emails.send(
-					{
-						from: process.env.BREVO_SENDER_EMAIL || process.env.RESEND_FROM_EMAIL || "noreply@example.com",
-						to: email,
-						subject: `Welcome to ${
-							process.env.APP_NAME || "Printer Management System"
-						} - Your Account Details`,
-						html: emailHtml,
-						text: emailText,
-					}
-				);
+				const { data: emailData, error: emailError } = await brevo.emails.send({
+					from:
+						process.env.BREVO_SENDER_EMAIL ||
+						process.env.RESEND_FROM_EMAIL ||
+						"noreply@example.com",
+					to: email,
+					subject: `Welcome to ${
+						process.env.APP_NAME || "Printer Management System"
+					} - Your Account Details`,
+					html: emailHtml,
+					text: emailText,
+				});
 
 				if (emailError) {
 					console.error("Error sending welcome email:", emailError);
@@ -248,7 +254,17 @@ export class UserController {
 	static async updateUser(req: Request, res: Response): Promise<void> {
 		try {
 			const { id } = req.params;
-			const { email, name, role, permissions, isActive, location } = req.body;
+			const {
+				email,
+				name,
+				role,
+				permissions,
+				isActive,
+				location,
+				businessName,
+				businessPhone,
+				websiteUrl,
+			} = req.body;
 
 			const user = await User.findById(id);
 			if (!user) {
@@ -272,11 +288,90 @@ export class UserController {
 				user.email = email;
 			}
 
+			// Handle business cover image upload to Cloudinary
+			const file = (req as any).file;
+			if (file) {
+				try {
+					// Only attempt Cloudinary upload if it's configured
+					if (isCloudinaryConfigured()) {
+						const uploadResult = await cloudinary.uploader.upload(file.path, {
+							resource_type: "image",
+							folder: "business-covers",
+						});
+
+						if (
+							uploadResult &&
+							uploadResult.public_id &&
+							uploadResult.secure_url
+						) {
+							// Delete old image from Cloudinary if it exists
+							if (user.businessCoverImage) {
+								try {
+									// Extract public_id from the URL if it's a Cloudinary URL
+									const oldUrl = user.businessCoverImage;
+									if (oldUrl && oldUrl.includes("cloudinary.com")) {
+										const publicIdMatch = oldUrl.match(/\/([^\/]+)\.[^.]+$/);
+										if (publicIdMatch) {
+											const matchedId = publicIdMatch[1];
+											if (matchedId) {
+												const publicId = matchedId.replace(
+													/business-covers\//,
+													""
+												);
+												await cloudinary.uploader.destroy(
+													`business-covers/${publicId}`
+												);
+											}
+										}
+									}
+								} catch (deleteError) {
+									console.warn(
+										"Error deleting old business cover image from Cloudinary:",
+										deleteError
+									);
+									// Continue even if deletion fails
+								}
+							}
+
+							user.businessCoverImage = uploadResult.secure_url;
+
+							// Delete local file after successful upload
+							try {
+								fs.unlinkSync(file.path);
+							} catch (deleteError) {
+								console.warn(
+									"Failed to delete local file after Cloudinary upload:",
+									deleteError
+								);
+							}
+						} else {
+							console.warn(
+								"Cloudinary upload returned invalid data:",
+								uploadResult
+							);
+							// Fallback: use local file path (not recommended for production)
+							user.businessCoverImage = file.path;
+						}
+					} else {
+						console.log("Cloudinary not configured, using local file storage");
+						// Fallback: use local file path
+						user.businessCoverImage = file.path;
+					}
+				} catch (error: any) {
+					console.error("Cloudinary upload failed:", error);
+					// Fallback: use local file path
+					user.businessCoverImage = file.path;
+				}
+			}
+
 			if (name) user.name = name;
 			if (role) user.role = role;
 			if (permissions) user.permissions = permissions;
 			if (isActive !== undefined) user.isActive = isActive;
 			if (location) user.location = location;
+			if (businessName) user.businessName = businessName;
+			if (businessPhone) user.businessPhone = businessPhone;
+			if (websiteUrl) user.websiteUrl = websiteUrl;
 			await user.save();
 
 			res.json({
