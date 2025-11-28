@@ -275,6 +275,8 @@ export class UserController {
 				return;
 			}
 
+			console.log("location ------- ", JSON.stringify(location, null, 2));
+
 			// Check if email is being changed and if it's already taken
 			if (email && email !== user.email) {
 				const existingUser = await User.findOne({ email });
