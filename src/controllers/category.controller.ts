@@ -52,6 +52,23 @@ export const getCategoryByAdminId = async (req: Request, res: Response) => {
     }
 }
 
+export const getCategoryById = async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params;
+		const category = await categoryModel.findById(id);
+		res.status(200).json({
+			success: true,
+			message: "Category fetched successfully",
+			data: category,
+		});
+	} catch (error) {
+		console.error("Error fetching category by id:", error);
+		res.status(500).json({
+			success: false,
+			message: "Internal server error",
+		});
+	}
+};
 export const updateCategory = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
