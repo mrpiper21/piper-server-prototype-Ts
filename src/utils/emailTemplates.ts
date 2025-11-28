@@ -236,3 +236,252 @@ If you did not expect this email, please contact your administrator
 	`.trim();
 }
 
+interface PrintJobNotificationData {
+	clerkName: string;
+	fileName: string;
+	artwork: string;
+	size: string;
+	quantity: number;
+	location: string;
+	jobId: string;
+	submittedAt: Date | string;
+}
+
+/**
+ * Generate HTML email template for new print job notification
+ */
+export function generatePrintJobNotificationEmail(data: PrintJobNotificationData): string {
+	const { clerkName, fileName, artwork, size, quantity, location, jobId, submittedAt } = data;
+	const appName = "Print Agent";
+	const formattedDate = new Date(submittedAt).toLocaleString('en-US', {
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit'
+	});
+
+	return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>New Print Job - ${appName}</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+			line-height: 1.6;
+			color: #333333;
+			background-color: #f4f4f4;
+		}
+		.email-container {
+			max-width: 600px;
+			margin: 0 auto;
+			background-color: #ffffff;
+		}
+		.email-header {
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			padding: 40px 20px;
+			text-align: center;
+			color: #ffffff;
+		}
+		.email-header h1 {
+			font-size: 28px;
+			font-weight: 600;
+			margin-bottom: 10px;
+		}
+		.email-body {
+			padding: 40px 30px;
+		}
+		.greeting {
+			font-size: 18px;
+			font-weight: 600;
+			color: #333333;
+			margin-bottom: 20px;
+		}
+		.content {
+			font-size: 16px;
+			color: #555555;
+			margin-bottom: 30px;
+			line-height: 1.8;
+		}
+		.job-info-box {
+			background-color: #f8f9fa;
+			border-left: 4px solid #667eea;
+			padding: 20px;
+			margin: 30px 0;
+			border-radius: 4px;
+		}
+		.job-info-box h3 {
+			font-size: 18px;
+			font-weight: 600;
+			color: #333333;
+			margin-bottom: 20px;
+		}
+		.info-row {
+			display: flex;
+			justify-content: space-between;
+			padding: 12px 0;
+			border-bottom: 1px solid #e9ecef;
+		}
+		.info-row:last-child {
+			border-bottom: none;
+		}
+		.info-label {
+			font-size: 14px;
+			font-weight: 600;
+			color: #666666;
+			flex: 1;
+		}
+		.info-value {
+			font-size: 14px;
+			color: #333333;
+			flex: 1;
+			text-align: right;
+			font-weight: 500;
+		}
+		.status-badge {
+			display: inline-block;
+			background-color: #ffc107;
+			color: #856404;
+			padding: 6px 12px;
+			border-radius: 20px;
+			font-size: 12px;
+			font-weight: 600;
+			text-transform: uppercase;
+		}
+		.alert-box {
+			background-color: #e7f3ff;
+			border-left: 4px solid #2196F3;
+			padding: 15px;
+			margin: 25px 0;
+			border-radius: 4px;
+		}
+		.alert-box p {
+			font-size: 14px;
+			color: #1976D2;
+			margin: 0;
+		}
+		.footer {
+			background-color: #f8f9fa;
+			padding: 30px;
+			text-align: center;
+			border-top: 1px solid #e9ecef;
+		}
+		.footer p {
+			font-size: 14px;
+			color: #666666;
+			margin-bottom: 10px;
+		}
+	</style>
+</head>
+<body>
+	<div class="email-container">
+		<div class="email-header">
+			<h1>🖨️ New Print Job</h1>
+			<p style="margin-top: 10px; opacity: 0.9;">A new job has been submitted</p>
+		</div>
+		
+		<div class="email-body">
+			<div class="greeting">Hello ${clerkName},</div>
+			
+			<div class="content">
+				<p>A new print job has been submitted and is waiting for processing.</p>
+			</div>
+			
+			<div class="job-info-box">
+				<h3>Job Details</h3>
+				<div class="info-row">
+					<span class="info-label">File Name:</span>
+					<span class="info-value">${fileName}</span>
+				</div>
+				<div class="info-row">
+					<span class="info-label">Artwork:</span>
+					<span class="info-value">${artwork}</span>
+				</div>
+				<div class="info-row">
+					<span class="info-label">Size:</span>
+					<span class="info-value">${size}</span>
+				</div>
+				<div class="info-row">
+					<span class="info-label">Quantity:</span>
+					<span class="info-value">${quantity}</span>
+				</div>
+				<div class="info-row">
+					<span class="info-label">Location:</span>
+					<span class="info-value">${location}</span>
+				</div>
+				<div class="info-row">
+					<span class="info-label">Status:</span>
+					<span class="info-value"><span class="status-badge">Pending</span></span>
+				</div>
+				<div class="info-row">
+					<span class="info-label">Submitted:</span>
+					<span class="info-value">${formattedDate}</span>
+				</div>
+				<div class="info-row">
+					<span class="info-label">Job ID:</span>
+					<span class="info-value" style="font-family: 'Courier New', monospace; font-size: 12px;">${jobId}</span>
+				</div>
+			</div>
+			
+			<div class="alert-box">
+				<p><strong>📋 Action Required:</strong> Please process this job in the ${appName} application.</p>
+			</div>
+		</div>
+		
+		<div class="footer">
+			<p>This is an automated notification from ${appName}</p>
+			<p>Please check your dashboard for more details</p>
+		</div>
+	</div>
+</body>
+</html>
+	`.trim();
+}
+
+/**
+ * Generate plain text version of print job notification email
+ */
+export function generatePrintJobNotificationEmailText(data: PrintJobNotificationData): string {
+	const { clerkName, fileName, artwork, size, quantity, location, jobId, submittedAt } = data;
+	const appName = "Print Agent";
+	const formattedDate = new Date(submittedAt).toLocaleString('en-US', {
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit'
+	});
+
+	return `
+New Print Job - ${appName}
+
+Hello ${clerkName},
+
+A new print job has been submitted and is waiting for processing.
+
+Job Details:
+-----------
+File Name: ${fileName}
+Artwork: ${artwork}
+Size: ${size}
+Quantity: ${quantity}
+Location: ${location}
+Status: PENDING
+Submitted: ${formattedDate}
+Job ID: ${jobId}
+
+Action Required: Please process this job in the ${appName} application.
+
+This is an automated notification from ${appName}
+Please check your dashboard for more details
+	`.trim();
+}
+

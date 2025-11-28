@@ -10,6 +10,7 @@ import {
 	isCloudinaryConfigured,
 } from "../helpes/cloudinary/index.js";
 import { UserRole } from "../models/shared/enums.js";
+import { notifyClerksOfNewPrintJob } from "../services/printJobNotification.service.js";
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -36,148 +37,196 @@ class PrinterController {
 		return filter;
 	}
 	/**
+	 * Validate file upload request
+	 */
+	private async validateFileUpload(
+		file: any,
+		body: any,
+		clientId: string
+	): Promise<{ isValid: boolean; error?: string }> {
+		if (!clientId) {
+			return { isValid: false, error: "Client ID is required" };
+		}
+
+		if (!file) {
+			return { isValid: false, error: "No file uploaded" };
+		}
+
+		if (
+			!body.artwork ||
+			!body.width ||
+			!body.height ||
+			!body.quantity ||
+			!body.location ||
+			!body.adminId
+		) {
+			return {
+				isValid: false,
+				error:
+					"Missing required fields: artwork, width, height, quantity, location, and adminId are required",
+			};
+		}
+
+		const mongoose = (await import("mongoose")).default;
+		if (!mongoose.Types.ObjectId.isValid(body.adminId)) {
+			return { isValid: false, error: "Invalid adminId format" };
+		}
+
+		return { isValid: true };
+	}
+
+	/**
+	 * Upload file to Cloudinary if configured
+	 */
+	private async uploadToCloudinary(
+		file: any
+	): Promise<{ publicId: string; url: string } | null> {
+		if (!isCloudinaryConfigured()) {
+			console.log("Cloudinary not configured, using local file storage");
+			return null;
+		}
+
+		try {
+			const isPDF =
+				file.mimetype === "application/pdf" ||
+				file.originalname.toLowerCase().endsWith(".pdf");
+			const resourceType = isPDF ? "raw" : "auto";
+
+			const uploadResult = await cloudinary.uploader.upload(file.path, {
+				resource_type: resourceType,
+				folder: "print-jobs",
+			});
+
+			if (uploadResult && uploadResult.public_id && uploadResult.secure_url) {
+				// Delete local file after successful upload
+				try {
+					fs.unlinkSync(file.path);
+				} catch (deleteError) {
+					console.warn(
+						"Failed to delete local file after Cloudinary upload:",
+						deleteError
+					);
+				}
+
+				return {
+					publicId: uploadResult.public_id,
+					url: uploadResult.secure_url,
+				};
+			} else {
+				console.warn("Cloudinary upload returned invalid data:", uploadResult);
+				return null;
+			}
+		} catch (error: any) {
+			console.warn("Cloudinary upload failed, using local file:", error);
+			return null;
+		}
+	}
+
+	/**
+	 * Prepare print job data
+	 */
+	private async preparePrintJobData(
+		file: any,
+		body: any,
+		clientId: string,
+		cloudinaryData: { publicId: string; url: string } | null
+	): Promise<Record<string, any>> {
+		const mongoose = (await import("mongoose")).default;
+
+		const printData: Record<string, any> = {
+			fileName: file.originalname,
+			filePath: cloudinaryData ? cloudinaryData.url : file.path,
+			fileSize: file.size,
+			originalName: file.originalname,
+			printerName: body.printerName || "default",
+			copies: parseInt(body.copies, 10) || 1,
+			duplex: body.duplex === "true",
+			color: body.color === "true",
+			status: "pending",
+			artwork: body.artwork,
+			width: body.width,
+			height: body.height,
+			size: `${body.width} x ${body.height}`,
+			quantity: parseInt(body.quantity, 10),
+			location: body.location,
+			description: body.description || "",
+			clientId: clientId,
+			adminId: new mongoose.Types.ObjectId(body.adminId),
+		};
+
+		if (cloudinaryData) {
+			printData.cloudinaryPublicId = cloudinaryData.publicId;
+			printData.cloudinaryUrl = cloudinaryData.url;
+		}
+
+		return printData;
+	}
+
+	/**
+	 * Clean up file on error
+	 */
+	private cleanupFile(file: any): void {
+		if (file && file.path && fs.existsSync(file.path)) {
+			try {
+				fs.unlinkSync(file.path);
+			} catch (error) {
+				console.warn("Failed to cleanup file:", error);
+			}
+		}
+	}
+
+	/**
 	 * Submit PDF for printing
 	 */
 	async submitPDF(req: any, res: Response): Promise<void> {
+		const file = req.file as any | undefined;
+		const body = req.body;
+		const clientId = req.params.id;
+
 		try {
-			const file = req.file as any | undefined;
-			const body = req.body;
-			const clientId = req.params.id;
-			if (!clientId) {
-				res.status(400).json({
-					success: false,
-					message: "Client ID is required",
-				});
-				return;
-			}
-
-			if (!file) {
-				res.status(400).json({
-					success: false,
-					message: "No file uploaded",
-				});
-				return;
-			}
-
-			// Validate required fields from the form
-			if (
-				!body.artwork ||
-				!body.width ||
-				!body.height ||
-				!body.quantity ||
-				!body.location ||
-				!body.adminId
-			) {
-				if (file && file.path) {
-					fs.unlinkSync(file.path);
+			// Validate request
+			const validation = await this.validateFileUpload(file, body, clientId);
+			if (!validation.isValid) {
+				if (file) {
+					this.cleanupFile(file);
 				}
 				res.status(400).json({
 					success: false,
-					message:
-						"Missing required fields: artwork, width, height, quantity, location, and adminId are required",
+					message: validation.error,
 				});
 				return;
 			}
 
-			// Validate adminId format
-			const mongoose = (await import("mongoose")).default;
-			if (!mongoose.Types.ObjectId.isValid(body.adminId)) {
-				if (file && file.path) {
-					fs.unlinkSync(file.path);
-				}
-				res.status(400).json({
-					success: false,
-					message: "Invalid adminId format",
-				});
-				return;
-			}
+			// Upload to Cloudinary if configured
+			const cloudinaryData = await this.uploadToCloudinary(file);
 
-			// Upload file to Cloudinary (only if configured)
-			let cloudinaryData: { publicId: string; url: string } | null = null;
-			let useCloudinary = false;
+			// Prepare print job data
+			const printData = await this.preparePrintJobData(
+				file,
+				body,
+				clientId,
+				cloudinaryData
+			);
 
-			// Only attempt Cloudinary upload if it's configured
-			if (isCloudinaryConfigured()) {
-				// Determine resource type based on file MIME type
-				// PDFs should use "raw" to get raw/upload path, others use "auto"
-				const isPDF =
-					file.mimetype === "application/pdf" ||
-					file.originalname.toLowerCase().endsWith(".pdf");
-				const resourceType = isPDF ? "raw" : "auto";
-
-				try {
-					const uploadResult = await cloudinary.uploader.upload(file.path, {
-						resource_type: resourceType,
-						folder: "print-jobs",
-					});
-
-					if (
-						uploadResult &&
-						uploadResult.public_id &&
-						uploadResult.secure_url
-					) {
-						cloudinaryData = {
-							publicId: uploadResult.public_id,
-							url: uploadResult.secure_url,
-						};
-						useCloudinary = true;
-
-						// Delete local file after successful upload
-						try {
-							fs.unlinkSync(file.path);
-						} catch (deleteError) {
-							console.warn(
-								"Failed to delete local file after Cloudinary upload:",
-								deleteError
-							);
-						}
-					} else {
-						console.warn(
-							"Cloudinary upload returned invalid data:",
-							uploadResult
-						);
-						useCloudinary = false;
-					}
-				} catch (error: any) {
-					console.warn("Cloudinary upload failed, using local file:", error);
-					useCloudinary = false;
-				}
-			} else {
-				console.log("Cloudinary not configured, using local file storage");
-			}
-
-			// Use Cloudinary data if available, otherwise use local file data
-			const printData: Record<string, any> = {
-				fileName: file.originalname,
-				filePath: cloudinaryData ? cloudinaryData.url : file.path,
-				fileSize: file.size,
-				originalName: file.originalname,
-				printerName: body.printerName || "default",
-				copies: parseInt(body.copies, 10) || 1,
-				duplex: body.duplex === "true",
-				color: body.color === "true",
-				status: "pending",
-				artwork: body.artwork,
-				width: body.width,
-				height: body.height,
-				size: `${body.width} x ${body.height}`,
-				quantity: parseInt(body.quantity, 10),
-				location: body.location,
-				description: body.description || "",
-				clientId: clientId,
-				adminId: new mongoose.Types.ObjectId(body.adminId), // Link job to admin
-			};
-
-			// Add Cloudinary-specific fields if upload was successful
-			if (cloudinaryData) {
-				printData.cloudinaryPublicId = cloudinaryData.publicId;
-				printData.cloudinaryUrl = cloudinaryData.url;
-			}
-
+			// Create and save print job
 			const pdfPrint = new pdfPrintModel(printData);
 			await pdfPrint.save();
 
-			console.log("saved ----- ", pdfPrint);
+			// Send email notifications to clerks (non-blocking)
+			notifyClerksOfNewPrintJob(body.adminId, {
+				fileName: pdfPrint.fileName,
+				artwork: pdfPrint.artwork,
+				size: pdfPrint.size,
+				quantity: pdfPrint.quantity,
+				location: pdfPrint.location,
+				jobId: pdfPrint._id.toString(),
+				submittedAt: pdfPrint.createdAt,
+			}).catch((error) => {
+				console.error("Failed to send email notifications:", error);
+				// Don't fail the request if email fails
+			});
+
+			// Return success response
 			res.status(201).json({
 				success: true,
 				message: "File submitted for printing successfully",
@@ -193,6 +242,11 @@ class PrinterController {
 				},
 			});
 		} catch (error: any) {
+			// Cleanup file on error
+			if (file) {
+				this.cleanupFile(file);
+			}
+
 			console.error("Error submitting file:", error);
 			res.status(500).json({
 				success: false,
