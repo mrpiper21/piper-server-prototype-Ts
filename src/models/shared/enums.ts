@@ -4,6 +4,7 @@
 export enum UserRole {
 	ADMIN = "admin",
 	CLERK = "clerk",
+	SUPERADMIN = "superadmin",
 }
 
 // User permissions enum
@@ -53,6 +54,20 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
 		// Permission.VIEW_AGENTS,
 		Permission.VIEW_OWN_JOBS,
 		Permission.MANAGE_USERS,
+	],
+	[UserRole.SUPERADMIN]: [
+		// SuperAdmin has all permissions
+		Permission.MANAGE_USERS,
+		Permission.VIEW_ANALYTICS,
+		Permission.MANAGE_SYSTEM,
+		Permission.VIEW_ALL_JOBS,
+		Permission.MANAGE_JOBS,
+		Permission.SUBMIT_PRINTS,
+		Permission.VIEW_AGENTS,
+		Permission.VIEW_REPORTS,
+		Permission.MANAGE_AGENTS,
+		Permission.MAINTAIN_PRINTERS,
+		Permission.VIEW_LOGS,
 	],
 };
 

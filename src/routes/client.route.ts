@@ -107,6 +107,15 @@ router.get('/get-client-orders/:id',
 );
 
 /**
+ * @route   GET /api/clients/get-client-order-by-id/:id
+ * @desc    Get client order by ID
+ * @access  Client only
+ */
+router.get('/get-client-order-by-id/:id',
+  ClientController.getClientOrderById
+);
+
+/**
  * @route   GET /api/clients/:id
  * @desc    Get client by ID
  * @access  Admin/Staff or the client themselves (add role/ownership check)

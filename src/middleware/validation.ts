@@ -349,3 +349,55 @@ export const otpValidation = {
       .withMessage('Please provide a valid email')
   ]
 };
+
+export const supportValidation = {
+  create: [
+    body('message')
+      .trim()
+      .isLength({ min: 10, max: 2000 })
+      .withMessage('Message must be between 10 and 2000 characters'),
+    body('jobId')
+      .isMongoId()
+      .withMessage('Valid job ID is required'),
+    body('clientId')
+      .isMongoId()
+      .withMessage('Valid client ID is required')
+  ],
+
+  update: [
+    body('message')
+      .optional()
+      .trim()
+      .isLength({ min: 10, max: 2000 })
+      .withMessage('Message must be between 10 and 2000 characters'),
+    body('response')
+      .optional()
+      .trim()
+      .isLength({ min: 10, max: 2000 })
+      .withMessage('Response must be between 10 and 2000 characters')
+  ],
+
+  getById: [
+    param('id')
+      .isMongoId()
+      .withMessage('Valid support ticket ID is required')
+  ],
+
+  getByJob: [
+    param('jobId')
+      .isMongoId()
+      .withMessage('Valid job ID is required')
+  ],
+
+  getByClient: [
+    param('clientId')
+      .isMongoId()
+      .withMessage('Valid client ID is required')
+  ],
+
+  delete: [
+    param('id')
+      .isMongoId()
+      .withMessage('Valid support ticket ID is required')
+  ]
+};

@@ -18,7 +18,8 @@ export interface IUser extends Document {
 	businessName: string;
 	businessPhone: string;
 	businessCoverImage?: string;
-	websiteUrl: string;
+	paystackSubaccountCode?: string;
+	websiteUrl?: string;
 	permissions: Permission[];
 	isActive: boolean;
 	lastLogin?: Date;
@@ -81,6 +82,10 @@ const userSchema = new Schema<IUser>(
 			required: false,
 		},
 		businessPhone: {
+			type: String,
+			required: false,
+		},
+		paystackSubaccountCode: {
 			type: String,
 			required: false,
 		},

@@ -11,6 +11,7 @@ import {
 } from "../helpes/cloudinary/index.js";
 import { UserRole } from "../models/shared/enums.js";
 import { notifyClerksOfNewPrintJob } from "../services/printJobNotification.service.js";
+import { notifyClientOfJobCompletion } from "../services/clientNotification.service.js";
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -38,6 +39,7 @@ class PrinterController {
 	}
 	/**
 	 * Validate file upload request
+	 * File upload is optional for result forms (wassce_result, bece_result, novdec_result)
 	 */
 	private async validateFileUpload(
 		file: any,
@@ -48,28 +50,41 @@ class PrinterController {
 			return { isValid: false, error: "Client ID is required" };
 		}
 
-		if (!file) {
+		// Check if this is a result form category that doesn't require files
+		const mongoose = (await import("mongoose")).default;
+		let isResultForm = false;
+
+		if (body.categoryId && mongoose.Types.ObjectId.isValid(body.categoryId)) {
+			const Category = (await import("../models/category.model.js")).default;
+			const category = await Category.findById(body.categoryId);
+			if (category) {
+				const resultFormTypes = [
+					"wassce_result",
+					"bece_result",
+					"novdec_result",
+				];
+				isResultForm = resultFormTypes.includes(category.categoryType);
+			}
+		}
+
+		// File is only required for non-result forms
+		if (!isResultForm && !file) {
 			return { isValid: false, error: "No file uploaded" };
 		}
 
-		if (
-			!body.artwork ||
-			!body.width ||
-			!body.height ||
-			!body.quantity ||
-			!body.location ||
-			!body.adminId
-		) {
+		if (!body.adminId || !body.categoryId) {
 			return {
 				isValid: false,
-				error:
-					"Missing required fields: artwork, width, height, quantity, location, and adminId are required",
+				error: "Missing required fields: adminId, and categoryId are required",
 			};
 		}
 
-		const mongoose = (await import("mongoose")).default;
 		if (!mongoose.Types.ObjectId.isValid(body.adminId)) {
 			return { isValid: false, error: "Invalid adminId format" };
+		}
+
+		if (!mongoose.Types.ObjectId.isValid(body.categoryId)) {
+			return { isValid: false, error: "Invalid categoryId format" };
 		}
 
 		return { isValid: true };
@@ -77,10 +92,15 @@ class PrinterController {
 
 	/**
 	 * Upload file to Cloudinary if configured
+	 * Returns null if no file is provided
 	 */
 	private async uploadToCloudinary(
 		file: any
 	): Promise<{ publicId: string; url: string } | null> {
+		if (!file) {
+			return null;
+		}
+
 		if (!isCloudinaryConfigured()) {
 			console.log("Cloudinary not configured, using local file storage");
 			return null;
@@ -124,20 +144,21 @@ class PrinterController {
 
 	/**
 	 * Prepare print job data
+	 * Handles cases where file may be optional (e.g., result forms)
 	 */
 	private async preparePrintJobData(
 		file: any,
 		body: any,
 		clientId: string,
+		categoryId: string,
+		indexNumber: string,
+		dateOfBirth: string,
+		yearOfCompletion: string,
 		cloudinaryData: { publicId: string; url: string } | null
 	): Promise<Record<string, any>> {
 		const mongoose = (await import("mongoose")).default;
 
 		const printData: Record<string, any> = {
-			fileName: file.originalname,
-			filePath: cloudinaryData ? cloudinaryData.url : file.path,
-			fileSize: file.size,
-			originalName: file.originalname,
 			printerName: body.printerName || "default",
 			copies: parseInt(body.copies, 10) || 1,
 			duplex: body.duplex === "true",
@@ -152,7 +173,19 @@ class PrinterController {
 			description: body.description || "",
 			clientId: clientId,
 			adminId: new mongoose.Types.ObjectId(body.adminId),
+			categoryId: new mongoose.Types.ObjectId(categoryId),
+			indexNumber: indexNumber,
+			dateOfBirth: dateOfBirth,
+			yearOfCompletion: yearOfCompletion,
 		};
+
+		// Only add file-related fields if file exists
+		if (file) {
+			printData.fileName = file.originalname;
+			printData.filePath = cloudinaryData ? cloudinaryData.url : file.path;
+			printData.fileSize = file.size;
+			printData.originalName = file.originalname;
+		}
 
 		if (cloudinaryData) {
 			printData.cloudinaryPublicId = cloudinaryData.publicId;
@@ -205,6 +238,10 @@ class PrinterController {
 				file,
 				body,
 				clientId,
+				body?.categoryId || "",
+				body?.indexNumber || "",
+				body?.dateOfBirth || "",
+				body?.yearOfCompletion || "",
 				cloudinaryData
 			);
 
@@ -212,19 +249,25 @@ class PrinterController {
 			const pdfPrint = new pdfPrintModel(printData);
 			await pdfPrint.save();
 
+			// Get category info for email template
+			const Category = (await import("../models/category.model.js")).default;
+			const category = await Category.findById(body.categoryId);
+
 			// Send email notifications to clerks (non-blocking)
-			notifyClerksOfNewPrintJob(body.adminId, {
-				fileName: pdfPrint.fileName,
-				artwork: pdfPrint.artwork,
-				size: pdfPrint.size,
-				quantity: pdfPrint.quantity,
-				location: pdfPrint.location,
-				jobId: pdfPrint._id.toString(),
-				submittedAt: pdfPrint.createdAt,
-			}).catch((error) => {
-				console.error("Failed to send email notifications:", error);
-				// Don't fail the request if email fails
-			});
+			// notifyClerksOfNewPrintJob(body.adminId, {
+			// 	fileName: pdfPrint?.fileName ?? null,
+			// 	artwork: pdfPrint.artwork || "",
+			// 	size: pdfPrint.size || "",
+			// 	quantity: pdfPrint.quantity || 0,
+			// 	location: pdfPrint.location || "",
+			// 	jobId: pdfPrint._id.toString(),
+			// 	submittedAt: pdfPrint.createdAt || new Date(),
+			// 	...(category?.categoryType && { categoryType: String(category.categoryType) }),
+			// 	...(category?.name && { categoryName: String(category.name) }),
+			// } as any).catch((error) => {
+			// 	console.error("Failed to send email notifications:", error);
+			// 	// Don't fail the request if email fails
+			// });
 
 			// Return success response
 			res.status(201).json({
@@ -331,13 +374,16 @@ class PrinterController {
 
 			const printJobs = await pdfPrintModel
 				.find(filter)
+				.populate("categoryId")
+				.populate("clientId")
 				.limit(limitNum)
 				.skip((pageNum - 1) * limitNum)
 				.sort({ createdAt: -1 });
 
 			const total = await pdfPrintModel
 				.countDocuments(filter)
-				.populate("clientId");
+				.populate("clientId")
+				.populate("categoryId");
 
 			res.json({
 				success: true,
@@ -370,10 +416,13 @@ class PrinterController {
 			// Build adminId filter
 			const adminIdFilter = await this.buildAdminIdFilter(user);
 
-			const printJob = await pdfPrintModel.findOne({
-				_id: id,
-				...adminIdFilter,
-			});
+			const printJob = await pdfPrintModel
+				.findOne({
+					_id: id,
+					...adminIdFilter,
+				})
+				.populate("categoryId")
+				.populate("clientId");
 
 			if (!printJob) {
 				res.status(404).json({
@@ -404,7 +453,7 @@ class PrinterController {
 	async updatePrintJobStatus(req: Request, res: Response): Promise<void> {
 		try {
 			const { id } = req.params;
-			const { status, errorMessage } = req.body;
+			const { status, errorMessage, sendReportEmailToClient } = req.body;
 			const user = (req as any).user;
 
 			// Build adminId filter
@@ -449,7 +498,7 @@ class PrinterController {
 					new: true,
 					runValidators: true,
 				}
-			);
+			).populate("categoryId");
 
 			if (!printJob) {
 				res.status(404).json({
@@ -476,6 +525,45 @@ class PrinterController {
 					console.error("Error deleting file from Cloudinary:", deleteError);
 					// Don't fail the request if deletion fails, just log it
 				}
+			}
+
+			// Send email to client if job is completed and sendReportEmailToClient is true
+			if (status === "completed" && sendReportEmailToClient === true) {
+				const category = printJob.categoryId as any;
+				const emailData: any = {
+					clientName: "", // Will be fetched in the service
+					fileName: printJob.fileName || null,
+					artwork: printJob.artwork || "",
+					size: printJob.size || "",
+					quantity: printJob.quantity || 0,
+					location: printJob.location || "",
+					jobId: printJob._id.toString(),
+					completedAt: printJob.updatedAt || new Date(),
+				};
+				
+				if (category?.categoryType) {
+					emailData.categoryType = String(category.categoryType);
+				}
+				if (category?.name) {
+					emailData.categoryName = String(category.name);
+				}
+				if (printJob.indexNumber) {
+					emailData.indexNumber = String(printJob.indexNumber);
+				}
+				if (printJob.dateOfBirth) {
+					emailData.dateOfBirth = String(printJob.dateOfBirth);
+				}
+				if (printJob.yearOfCompletion) {
+					emailData.yearOfCompletion = String(printJob.yearOfCompletion);
+				}
+				
+				notifyClientOfJobCompletion(
+					printJob.clientId.toString(),
+					emailData
+				).catch((error) => {
+					console.error("Failed to send client completion email:", error);
+					// Don't fail the request if email fails
+				});
 			}
 
 			res.json({
@@ -687,11 +775,14 @@ class PrinterController {
 
 			const printJobs = await pdfPrintModel
 				.find(filter)
+				.populate("categoryId")
 				.limit(options.limit * 1)
 				.skip((options.page - 1) * options.limit)
 				.sort(options.sort as any);
 
-			const total = await pdfPrintModel.countDocuments(filter);
+			const total = await pdfPrintModel
+				.countDocuments(filter)
+				.populate("categoryId");
 
 			res.json({
 				success: true,
