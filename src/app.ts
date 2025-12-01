@@ -13,6 +13,9 @@ import { connectDB } from "./db/connection.js";
 import dashboardRoutes from "./routes/dashboard.route.js";
 import otpRoutes from "./routes/otp.route.js";
 import categoryRoutes from "./routes/category.route.js";
+import supportRoutes from "./routes/support.route.js";
+import superAdminRoutes from "./routes/superadmin.route.js";
+import paymentRoutes from "./routes/payment.route.js";
 // import { startKeepAlive } from "./utils/keepAlive.js";
 
 // Load environment variables
@@ -28,6 +31,7 @@ app.use(
 	cors({
 		origin: [
 			"http://localhost:5174",
+			"http://localhost:5175",
 			"http://localhost:5173",
 			"https://piper-client-phi.vercel.app",
 		],
@@ -51,6 +55,9 @@ app.use("/api/clients", clientRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/otp", otpRoutes);
+app.use("/api/support", supportRoutes);
+app.use("/api/superadmin", superAdminRoutes);
+app.use("/api/payments", paymentRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req: Request, res: Response) => {

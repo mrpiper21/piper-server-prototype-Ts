@@ -349,3 +349,114 @@ export const otpValidation = {
       .withMessage('Please provide a valid email')
   ]
 };
+
+export const supportValidation = {
+  create: [
+    body('message')
+      .trim()
+      .isLength({ min: 10, max: 2000 })
+      .withMessage('Message must be between 10 and 2000 characters'),
+    body('jobId')
+      .isMongoId()
+      .withMessage('Valid job ID is required'),
+    body('clientId')
+      .isMongoId()
+      .withMessage('Valid client ID is required')
+  ],
+
+  update: [
+    body('message')
+      .optional()
+      .trim()
+      .isLength({ min: 10, max: 2000 })
+      .withMessage('Message must be between 10 and 2000 characters'),
+    body('response')
+      .optional()
+      .trim()
+      .isLength({ min: 10, max: 2000 })
+      .withMessage('Response must be between 10 and 2000 characters')
+  ],
+
+  getById: [
+    param('id')
+      .isMongoId()
+      .withMessage('Valid support ticket ID is required')
+  ],
+
+  getByJob: [
+    param('jobId')
+      .isMongoId()
+      .withMessage('Valid job ID is required')
+  ],
+
+  getByClient: [
+    param('clientId')
+      .isMongoId()
+      .withMessage('Valid client ID is required')
+  ],
+
+  delete: [
+    param('id')
+      .isMongoId()
+      .withMessage('Valid support ticket ID is required')
+  ]
+};
+
+export const paymentValidation = {
+	initialize: [
+		body("amount")
+			.isFloat({ min: 0.01 })
+			.withMessage("Amount must be a positive number"),
+		body("email")
+			.isEmail()
+			.normalizeEmail()
+			.withMessage("Please provide a valid email"),
+		body("subaccount")
+			.optional()
+			.isString()
+			.withMessage("Subaccount must be a string"),
+		body("split_code")
+			.optional()
+			.isString()
+			.withMessage("Split code must be a string"),
+		body("currency")
+			.optional()
+			.isIn(["NGN", "GHS", "USD", "ZAR", "KES"])
+			.withMessage("Currency must be one of: NGN, GHS, USD, ZAR, KES"),
+		body("callback_url")
+			.optional()
+			.isURL()
+			.withMessage("Callback URL must be a valid URL"),
+		body("metadata")
+			.optional()
+			.isObject()
+			.withMessage("Metadata must be an object"),
+	],
+
+	createSplit: [
+		body("name")
+			.trim()
+			.isLength({ min: 2, max: 100 })
+			.withMessage("Split name must be between 2 and 100 characters"),
+		body("type")
+			.isIn(["percentage", "flat"])
+			.withMessage('Split type must be either "percentage" or "flat"'),
+		body("currency")
+			.isIn(["NGN", "GHS", "USD", "ZAR", "KES"])
+			.withMessage("Currency must be one of: NGN, GHS, USD, ZAR, KES"),
+		body("subaccounts")
+			.isArray({ min: 1 })
+			.withMessage("At least one subaccount is required"),
+		body("subaccounts.*.subaccount")
+			.isString()
+			.notEmpty()
+			.withMessage("Subaccount code is required for each subaccount"),
+		body("subaccounts.*.share")
+			.isFloat({ min: 0 })
+			.withMessage("Share must be a positive number"),
+	],
+
+	verify: [
+		param("reference").notEmpty().withMessage("Payment reference is required"),
+	],
+};

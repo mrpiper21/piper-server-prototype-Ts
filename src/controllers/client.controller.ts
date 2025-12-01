@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import pdfPrintModel from '../models/printer.model.js';
 import mongoose from 'mongoose';
 import User from "../models/user.model.js";
+import Clerk from "../models/clerk.model.js";
 
 export class ClientController {
 	/**
@@ -556,9 +557,9 @@ export class ClientController {
 	static async getClientOrders(req: Request, res: Response): Promise<void> {
 		try {
 			const clientId = req.params.id;
-			const orders = await pdfPrintModel.find({ clientId: clientId });
-
-			console.log("orders ------- ", orders);
+			const orders = await pdfPrintModel
+				.find({ clientId: clientId })
+				.populate("categoryId");
 
 			res.json({
 				success: true,
@@ -568,6 +569,41 @@ export class ClientController {
 			});
 		} catch (error: any) {
 			console.error("Get client stats error:", error);
+			res.status(500).json({
+				success: false,
+				message: "Internal server error",
+				error: error.message,
+			});
+		}
+	}
+
+	static async getClientOrderById(req: Request, res: Response): Promise<void> {
+		try {
+			const { id } = req.params;
+			const order = await pdfPrintModel
+				.findById(id)
+				.populate("categoryId")
+				.populate("executedBy")
+				.lean();
+
+			console.log("order ------- ", order);
+
+			if (!order) {
+				res.status(404).json({
+					success: false,
+					message: "Order not found",
+				});
+				return;
+			}
+
+			// Dynamically populate executedBy based on executedByModel
+
+			res.json({
+				success: true,
+				data: { order },
+			});
+		} catch (error: any) {
+			console.error("Get client order by ID error:", error);
 			res.status(500).json({
 				success: false,
 				message: "Internal server error",
@@ -754,6 +790,34 @@ export class ClientController {
 			res.status(500).json({
 				success: false,
 				message: "Internal server error",
+			});
+		}
+	}
+
+	public static async getPrintStationById(
+		req: Request,
+		res: Response
+	): Promise<void> {
+		try {
+			const { id } = req.params;
+			const printStation = await User.findById(id);
+			if (!printStation) {
+				res.status(404).json({
+					success: false,
+					message: "Print station not found",
+				});
+				return;
+			}
+			res.json({
+				success: true,
+				data: { printStation },
+			});
+		} catch (error: any) {
+			console.error("Get print station by ID error:", error);
+			res.status(500).json({
+				success: false,
+				message: "Internal server error",
+				error: error.message,
 			});
 		}
 	}

@@ -4,30 +4,47 @@ const PDFPrintSchema = new mongoose.Schema(
 	{
 		fileName: {
 			type: String,
-			required: true,
+			required: false,
 		},
 		filePath: {
 			type: String,
-			required: true,
+			required: false,
 		},
 		fileSize: {
 			type: Number,
-			required: true,
+			required: false,
 		},
 		originalName: {
 			type: String,
-			required: true,
+			required: false,
 		},
 		clientId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Client",
 			required: true,
 		},
+		indexNumber: {
+			type: String,
+			required: false,
+		},
+		dateOfBirth: {
+			type: String,
+			required: false,
+		},
+		yearOfCompletion: {
+			type: String,
+			required: false,
+		},
 		adminId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "User",
 			required: true,
 			index: true,
+		},
+		categoryId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Category",
+			required: true,
 		},
 		status: {
 			type: String,
@@ -67,28 +84,28 @@ const PDFPrintSchema = new mongoose.Schema(
 		},
 		artwork: {
 			type: String,
-			required: true,
+			required: false,
 		},
 		width: {
 			type: String,
-			required: true,
+			required: false,
 		},
 		height: {
 			type: String,
-			required: true,
+			required: false,
 		},
 		size: {
 			type: String,
-			required: true,
+			required: false,
 		},
 		quantity: {
 			type: Number,
-			required: true,
+			required: false,
 			default: 1,
 		},
 		location: {
 			type: String,
-			required: true,
+			required: false,
 		},
 		description: {
 			type: String,
@@ -106,6 +123,23 @@ const PDFPrintSchema = new mongoose.Schema(
 			type: String,
 			default: "frontend-user",
 		},
+		totalPrice: {
+			type: Number,
+			required: false,
+		},
+		paymentStatus: {
+			type: String,
+			enum: ["pending", "paid", "failed", "refunded"],
+			default: "pending",
+		},
+		paymentReference: {
+			type: String,
+			required: false,
+		},
+		paidAt: {
+			type: Date,
+			required: false,
+		},
 	},
 	{
 		timestamps: true,
@@ -119,6 +153,6 @@ PDFPrintSchema.index({ location: 1 });
 PDFPrintSchema.index({ artwork: 1 });
 PDFPrintSchema.index({ adminId: 1, status: 1 }); // Index for querying jobs by admin
 
-const pdfPrintModel = mongoose.model('PDFPrint', PDFPrintSchema);
+const pdfPrintModel = mongoose.model("PDFPrint", PDFPrintSchema);
 
-export default pdfPrintModel
+export default pdfPrintModel;

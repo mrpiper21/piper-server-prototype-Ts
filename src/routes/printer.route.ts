@@ -91,6 +91,7 @@ const upload = multer({
 router.use(AuthController.verifyToken);
 
 // Routes
+// File upload is optional - some forms (wassce, bece, novdec) don't require files
 router.post('/submit/client/:id', upload.single('pdfFile'), (req: Request, res: Response) => PrinterController.submitPDF(req, res));
 router.get('/jobs', (req: Request, res: Response) => PrinterController.getPrintJobs(req, res));
 router.get('/jobs/:id', (req: Request, res: Response) => PrinterController.getPrintJob(req, res));

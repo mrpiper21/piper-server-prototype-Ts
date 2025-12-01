@@ -1,8 +1,12 @@
 import express from 'express';
 import type { Request, Response } from 'express';
 import dashboardController from '../controllers/dashboard.controller.js';
+import { AuthController } from '../controllers/auth.controller.js';
 
 const router = express.Router();
+
+// Apply authentication middleware to all dashboard routes
+router.use(AuthController.verifyToken);
 
 // Dashboard stats (today's jobs, counters, filtered by date)
 router.get('/stats', (req: Request, res: Response) => dashboardController.getDashboardStats(req, res));

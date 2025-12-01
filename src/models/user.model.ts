@@ -18,7 +18,14 @@ export interface IUser extends Document {
 	businessName: string;
 	businessPhone: string;
 	businessCoverImage?: string;
-	websiteUrl: string;
+	paystackSubaccountCode?: string;
+	websiteUrl?: string;
+	workingHours?: {
+		day: string;
+		isOpen: boolean;
+		openTime?: string;
+		closeTime?: string;
+	}[];
 	permissions: Permission[];
 	isActive: boolean;
 	lastLogin?: Date;
@@ -84,10 +91,51 @@ const userSchema = new Schema<IUser>(
 			type: String,
 			required: false,
 		},
+		paystackSubaccountCode: {
+			type: String,
+			required: false,
+		},
 		businessCoverImage: {
 			type: String,
 			required: false,
 		},
+		workingHours: [
+			{
+				day: {
+					type: String,
+					enum: [
+						"monday",
+						"tuesday",
+						"wednesday",
+						"thursday",
+						"friday",
+						"saturday",
+						"sunday",
+					],
+					required: true,
+				},
+				isOpen: {
+					type: Boolean,
+					default: false,
+				},
+				openTime: {
+					type: String,
+					required: false,
+					match: [
+						/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,
+						"Invalid time format. Use HH:mm",
+					],
+				},
+				closeTime: {
+					type: String,
+					required: false,
+					match: [
+						/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/,
+						"Invalid time format. Use HH:mm",
+					],
+				},
+			},
+		],
 		role: {
 			type: String,
 			enum: [UserRole.ADMIN],

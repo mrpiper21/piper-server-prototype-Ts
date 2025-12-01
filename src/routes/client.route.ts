@@ -107,6 +107,15 @@ router.get('/get-client-orders/:id',
 );
 
 /**
+ * @route   GET /api/clients/get-client-order-by-id/:id
+ * @desc    Get client order by ID
+ * @access  Client only
+ */
+router.get('/get-client-order-by-id/:id',
+  ClientController.getClientOrderById
+);
+
+/**
  * @route   GET /api/clients/:id
  * @desc    Get client by ID
  * @access  Admin/Staff or the client themselves (add role/ownership check)
@@ -116,6 +125,14 @@ router.get('/:id',
   ClientController.getClientById
 );
 
+/**
+ * @route   GET /api/clients/get-print-station-by-id/:id
+ * @desc    Get print station by ID
+ * @access  Client only
+ */
+router.get('/get-print-station-by-id/:id',
+  ClientController.getPrintStationById
+);
 /**
  * @route   PUT /api/clients/:id
  * @desc    Update client
