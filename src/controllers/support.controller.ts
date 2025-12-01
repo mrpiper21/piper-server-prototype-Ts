@@ -178,6 +178,8 @@ export class SupportController {
 				.populate("jobId", "status printerName createdAt")
 				.sort({ createdAt: -1 });
 
+				console.log("supportTickets -----", supportTickets);
+
 			res.json({
 				success: true,
 				data: { supportTickets },

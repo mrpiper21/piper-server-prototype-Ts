@@ -264,6 +264,7 @@ export class UserController {
 				businessName,
 				businessPhone,
 				websiteUrl,
+				workingHours,
 			} = req.body;
 
 			const user = await User.findById(id);
@@ -274,8 +275,6 @@ export class UserController {
 				});
 				return;
 			}
-
-			console.log("location ------- ", JSON.stringify(location, null, 2));
 
 			// Check if email is being changed and if it's already taken
 			if (email && email !== user.email) {
@@ -374,6 +373,48 @@ export class UserController {
 			if (businessName) user.businessName = businessName;
 			if (businessPhone) user.businessPhone = businessPhone;
 			if (websiteUrl) user.websiteUrl = websiteUrl;
+			if (workingHours) {
+				// Validate working hours structure
+				if (Array.isArray(workingHours)) {
+					const validDays = [
+						"monday",
+						"tuesday",
+						"wednesday",
+						"thursday",
+						"friday",
+						"saturday",
+						"sunday",
+					];
+					const isValid = workingHours.every((wh) => {
+						return (
+							wh.day &&
+							validDays.includes(wh.day.toLowerCase()) &&
+							typeof wh.isOpen === "boolean" &&
+							(!wh.openTime ||
+								/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(wh.openTime)) &&
+							(!wh.closeTime ||
+								/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(wh.closeTime))
+						);
+					});
+
+					if (!isValid) {
+						res.status(400).json({
+							success: false,
+							message:
+								"Invalid working hours format. Each entry must have: day (monday-sunday), isOpen (boolean), and optional openTime/closeTime (HH:mm format)",
+						});
+						return;
+					}
+
+					user.workingHours = workingHours;
+				} else {
+					res.status(400).json({
+						success: false,
+						message: "Working hours must be an array",
+					});
+					return;
+				}
+			}
 			await user.save();
 
 			res.json({

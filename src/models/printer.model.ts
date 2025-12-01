@@ -123,6 +123,23 @@ const PDFPrintSchema = new mongoose.Schema(
 			type: String,
 			default: "frontend-user",
 		},
+		totalPrice: {
+			type: Number,
+			required: false,
+		},
+		paymentStatus: {
+			type: String,
+			enum: ["pending", "paid", "failed", "refunded"],
+			default: "pending",
+		},
+		paymentReference: {
+			type: String,
+			required: false,
+		},
+		paidAt: {
+			type: Date,
+			required: false,
+		},
 	},
 	{
 		timestamps: true,

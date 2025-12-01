@@ -794,6 +794,34 @@ export class ClientController {
 		}
 	}
 
+	public static async getPrintStationById(
+		req: Request,
+		res: Response
+	): Promise<void> {
+		try {
+			const { id } = req.params;
+			const printStation = await User.findById(id);
+			if (!printStation) {
+				res.status(404).json({
+					success: false,
+					message: "Print station not found",
+				});
+				return;
+			}
+			res.json({
+				success: true,
+				data: { printStation },
+			});
+		} catch (error: any) {
+			console.error("Get print station by ID error:", error);
+			res.status(500).json({
+				success: false,
+				message: "Internal server error",
+				error: error.message,
+			});
+		}
+	}
+
 	/**
 	 * Helper method to convert degrees to radians
 	 */

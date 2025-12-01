@@ -1,20 +1,40 @@
 import type { Request, Response } from 'express';
 import pdfPrintModel from '../models/printer.model.js';
+import { UserRole } from "../models/shared/enums.js";
 
 class DashboardController {
 	// Get dashboard job stats (today's jobs, completed, pending, failed, total, filtered by date)
 	private async buildAdminIdFilter(user: any): Promise<Record<string, any>> {
 		const filter: Record<string, any> = {};
+		const mongoose = (await import("mongoose")).default;
 
-		if (user) {
-			const mongoose = (await import("mongoose")).default;
-			if (user.adminId) {
-				// Clerks can only see jobs for their admin
-				filter.adminId = new mongoose.Types.ObjectId(user.adminId);
-			} else if (user.role === "admin" && user.userId) {
-				// Admins can see all their jobs
-				filter.adminId = new mongoose.Types.ObjectId(user.userId);
+		if (!user) {
+			// If no user, return empty filter (should not happen if auth middleware is applied)
+			// This is a security fallback - should never occur in practice
+			return filter;
+		}
+
+		// Clerks can only see jobs for their admin
+		if (user.adminId) {
+			if (!mongoose.Types.ObjectId.isValid(user.adminId)) {
+				throw new Error("Invalid adminId for clerk");
 			}
+			filter.adminId = new mongoose.Types.ObjectId(user.adminId);
+		}
+		// Admins can only see their own jobs
+		else if (user.role === UserRole.ADMIN && user.userId) {
+			if (!mongoose.Types.ObjectId.isValid(user.userId)) {
+				throw new Error("Invalid userId for admin");
+			}
+			filter.adminId = new mongoose.Types.ObjectId(user.userId);
+		}
+		// If user exists but doesn't match expected structure, this is a security issue
+		// Return an empty filter that will result in no jobs being returned
+		// This prevents unauthorized access to all jobs
+		else {
+			// Return a filter that matches nothing (invalid ObjectId)
+			// This ensures no jobs are returned if user structure is unexpected
+			filter.adminId = new mongoose.Types.ObjectId("000000000000000000000000");
 		}
 
 		return filter;
@@ -46,7 +66,9 @@ class DashboardController {
 				filter.createdAt = { $gte: selectedDate, $lte: endSelectedDate };
 			}
 
-			const filteredJobs = await pdfPrintModel.find(filter).populate("clientId");
+			const filteredJobs = await pdfPrintModel
+				.find(filter)
+				.populate("clientId");
 
 			const completedJobs = filteredJobs.filter(
 				(j) => j.status === "completed"
@@ -126,10 +148,12 @@ class DashboardController {
 			const user = (req as any).user;
 			const adminIdFilter = await this.buildAdminIdFilter(user);
 
-			const jobs = await pdfPrintModel.find({
-				...adminIdFilter,
-				createdAt: { $gte: d, $lte: endD },
-			}).populate("clientId");
+			const jobs = await pdfPrintModel
+				.find({
+					...adminIdFilter,
+					createdAt: { $gte: d, $lte: endD },
+				})
+				.populate("clientId");
 			res.json({ success: true, data: jobs });
 		} catch (err) {
 			res

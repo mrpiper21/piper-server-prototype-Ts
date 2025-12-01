@@ -577,6 +577,8 @@ export class SuperAdminController {
 				.skip(skip)
 				.limit(Number(limit));
 
+				console.log("supportTickets -----", supportTickets);
+
 			const total = await supportModel.countDocuments(query);
 
 			res.json({

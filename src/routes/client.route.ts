@@ -126,6 +126,14 @@ router.get('/:id',
 );
 
 /**
+ * @route   GET /api/clients/get-print-station-by-id/:id
+ * @desc    Get print station by ID
+ * @access  Client only
+ */
+router.get('/get-print-station-by-id/:id',
+  ClientController.getPrintStationById
+);
+/**
  * @route   PUT /api/clients/:id
  * @desc    Update client
  * @access  Admin/Staff only (add role check middleware)
