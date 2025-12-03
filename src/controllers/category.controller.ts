@@ -1,5 +1,6 @@
 import { type Request, type Response } from "express";
 import categoryModel from "../models/category.model.js";
+import User from "../models/user.model.js";
 
 export const createCategory = async (req: Request, res: Response) => {
 	try {
@@ -18,12 +19,18 @@ export const createCategory = async (req: Request, res: Response) => {
 			});
 		}
 
-		console.log(regularFormatProperties, "regularFormatProperties");
-		console.log(categoryType, "categoryType");
-		console.log(name, "name");
-		console.log(unitPrice, "unitPrice");
-		console.log(description, "description");
-		console.log(adminId, "adminId");
+		const hasSetPaymentMethod = await User.findOne({
+			_id: adminId,
+			paystackSubaccountCode: { $ne: null },
+		});
+		if (!hasSetPaymentMethod) {
+			return res.status(400).json({
+				success: false,
+				hasSetPaymentMethod: false,
+				message: "Please contact system support to set up your payment method",
+			});
+		}
+
 		const category = new categoryModel({
 			name,
 			unitPrice,

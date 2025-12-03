@@ -2,6 +2,59 @@ import { type Request, type Response } from "express";
 import categoryModel from "../models/category.model.js";
 
 /**
+ * Helper method to check if a station is currently open based on working hours
+ * @param workingHours Array of working hours for the station
+ * @returns boolean | null - true if open, false if closed, null if hours not available
+ */
+const isStationCurrentlyOpen = (
+	workingHours?: Array<{
+		day: string;
+		isOpen: boolean;
+		openTime?: string;
+		closeTime?: string;
+	}>
+): boolean | null => {
+	if (!workingHours || workingHours.length === 0) {
+		return null;
+	}
+
+	const now = new Date();
+	const dayNames = [
+		"sunday",
+		"monday",
+		"tuesday",
+		"wednesday",
+		"thursday",
+		"friday",
+		"saturday",
+	];
+	const currentDayIndex = now.getDay();
+	const currentDay = dayNames[currentDayIndex];
+	const currentTime = now.toTimeString().slice(0, 5);
+
+	const todaySchedule = workingHours.find(
+		(wh) => wh.day.toLowerCase() === currentDay
+	);
+
+	if (!todaySchedule) {
+		return false;
+	}
+
+	if (!todaySchedule.isOpen) {
+		return false;
+	}
+
+	if (!todaySchedule.openTime || !todaySchedule.closeTime) {
+		return true;
+	}
+
+	return (
+		currentTime >= todaySchedule.openTime &&
+		currentTime <= todaySchedule.closeTime
+	);
+};
+
+/**
  * Helper method to convert degrees to radians
  */
 const degreesToRadians = (degrees: number): number => {
@@ -57,7 +110,7 @@ export const searchCategories = async (req: Request, res: Response) => {
 			.find(query)
 			.populate({
 				path: "adminId",
-				select: "name email location businessName businessPhone websiteUrl businessCoverImage _id",
+				select: "name email location businessName businessPhone websiteUrl businessCoverImage _id workingHours",
 				match: { isActive: true },
 			})
 			.lean();
@@ -122,6 +175,8 @@ export const searchCategories = async (req: Request, res: Response) => {
 							businessPhone: admin.businessPhone || null,
 							websiteUrl: admin.websiteUrl || null,
 							businessCoverImage: admin.businessCoverImage || null,
+							workingHours: admin.workingHours || null,
+							isOpen: isStationCurrentlyOpen(admin.workingHours),
 						},
 					};
 				})
@@ -157,6 +212,8 @@ export const searchCategories = async (req: Request, res: Response) => {
 						businessPhone: admin.businessPhone || null,
 						websiteUrl: admin.websiteUrl || null,
 						businessCoverImage: admin.businessCoverImage || null,
+						workingHours: admin.workingHours || null,
+						isOpen: isStationCurrentlyOpen(admin.workingHours),
 					},
 				};
 			});
