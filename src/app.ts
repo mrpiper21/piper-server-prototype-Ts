@@ -33,7 +33,7 @@ app.use(
 			"http://localhost:5174",
 			"http://localhost:5175",
 			"http://localhost:5173",
-			"https://piper-client-phi.vercel.app",
+			"https://piper-client-one.vercel.app",
 		],
 		credentials: false,
 	})
