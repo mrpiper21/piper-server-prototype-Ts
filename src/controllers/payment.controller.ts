@@ -1,7 +1,6 @@
 import { type Request, type Response } from "express";
 import { validationResult } from "express-validator";
 import { paystackApi, isPaystackConfigured } from "../config/paystackConfig.js";
-import User from "../models/user.model.js";
 import pdfPrintModel from "../models/printer.model.js";
 import mongoose from "mongoose";
 
@@ -13,11 +12,12 @@ export class PaymentController {
 	 */
 	static async initializePayment(req: Request, res: Response): Promise<void> {
 		try {
-			// Check for validation errors
+			// Validation is handled by express-validator middleware
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
+				console.error("Payment initialization validation errors:", errors.array());
 				res.status(400).json({
-					success: false,
+					status: false,
 					message: "Validation failed",
 					errors: errors.array(),
 				});
@@ -26,51 +26,40 @@ export class PaymentController {
 
 			if (!isPaystackConfigured()) {
 				res.status(500).json({
-					success: false,
+					status: false,
 					message: "Payment service is not configured",
 				});
 				return;
 			}
 
-			const { amount, email, subaccount, split_code, metadata, callback_url, currency } = req.body;
-
-			// Validate required fields
-			if (!amount || !email) {
-				res.status(400).json({
-					success: false,
-					message: "Amount and email are required",
-				});
-				return;
-			}
-
-			const transactionData: any = {
-				amount: Number(amount) * 100, 
+			const {
+				amount,
 				email,
-				currency: currency || "GHS", // Default to GHS for Ghana
+				subaccount,
+				split_code,
+				metadata,
+				callback_url,
+				currency,
+			} = req.body;
+
+			// Build transaction data
+			const transactionData: any = {
+				amount: Number(amount) * 100, // Convert to smallest currency unit
+				email,
+				currency: currency || "GHS",
 			};
 
-			// Add subaccount if provided (direct subaccount payment)
-			if (subaccount) {
-				transactionData.subaccount = subaccount;
-			}
-
-			// Add split code if provided (split payment)
-			if (split_code) {
-				transactionData.split_code = split_code;
-			}
-
-			// Add metadata if provided
-			if (metadata) {
-				transactionData.metadata = metadata;
-			}
-
-			// Add callback URL if provided
-			if (callback_url) {
-				transactionData.callback_url = callback_url;
-			}
+			// Add optional fields
+			if (subaccount) transactionData.subaccount = subaccount;
+			if (split_code) transactionData.split_code = split_code;
+			if (metadata) transactionData.metadata = metadata;
+			if (callback_url) transactionData.callback_url = callback_url;
 
 			// Initialize transaction with Paystack
-			const response = await paystackApi.post("/transaction/initialize", transactionData);
+			const response = await paystackApi.post(
+				"/transaction/initialize",
+				transactionData
+			);
 
 			if (response.data.status) {
 				res.status(200).json({
@@ -93,7 +82,6 @@ export class PaymentController {
 			res.status(500).json({
 				status: false,
 				message: error.response?.data?.message || "Internal server error",
-				error: error.message,
 			});
 		}
 	}
@@ -105,11 +93,10 @@ export class PaymentController {
 	 */
 	static async createSplit(req: Request, res: Response): Promise<void> {
 		try {
-			// Check for validation errors
 			const errors = validationResult(req);
 			if (!errors.isEmpty()) {
 				res.status(400).json({
-					success: false,
+					status: false,
 					message: "Validation failed",
 					errors: errors.array(),
 				});
@@ -118,22 +105,13 @@ export class PaymentController {
 
 			if (!isPaystackConfigured()) {
 				res.status(500).json({
-					success: false,
+					status: false,
 					message: "Payment service is not configured",
 				});
 				return;
 			}
 
-			const { name, type, currency, subaccounts } = req.body;
-
-			// Validate required fields
-			if (!name || !type || !currency || !subaccounts || !Array.isArray(subaccounts)) {
-				res.status(400).json({
-					status: false,
-					message: "Name, type, currency, and subaccounts array are required",
-				});
-				return;
-			}
+			const { name, type, currency, subaccounts, bearer_type, bearer_subaccount } = req.body;
 
 			// Validate split type
 			if (!["percentage", "flat"].includes(type)) {
@@ -144,27 +122,43 @@ export class PaymentController {
 				return;
 			}
 
-			// Validate subaccounts array
-			if (subaccounts.length === 0) {
+			// Validate bearer_type if provided
+			if (bearer_type && !["account", "subaccount"].includes(bearer_type)) {
 				res.status(400).json({
 					status: false,
-					message: "At least one subaccount is required",
+					message: "Bearer type must be 'account' or 'subaccount'",
 				});
 				return;
 			}
 
-			// Prepare split data for Paystack
+			// If bearer_type is "subaccount", bearer_subaccount is required
+			if (bearer_type === "subaccount" && !bearer_subaccount) {
+				res.status(400).json({
+					status: false,
+					message: "bearer_subaccount is required when bearer_type is 'subaccount'",
+				});
+				return;
+			}
+
+			// Prepare split data according to Paystack API
 			const splitData: any = {
 				name,
 				type,
-				currency: currency.toUpperCase(), // Ensure uppercase (NGN, GHS)
+				currency: currency.toUpperCase(),
 				subaccounts: subaccounts.map((sub: any) => ({
 					subaccount: sub.subaccount,
 					share: Number(sub.share),
 				})),
 			};
 
-			// Create split with Paystack
+			// Add bearer information if provided (who bears transaction charges)
+			if (bearer_type) {
+				splitData.bearer_type = bearer_type;
+			}
+			if (bearer_subaccount) {
+				splitData.bearer_subaccount = bearer_subaccount;
+			}
+
 			const response = await paystackApi.post("/split", splitData);
 
 			if (response.data.status) {
@@ -172,18 +166,10 @@ export class PaymentController {
 					status: true,
 					message: "Split created successfully",
 					data: {
-						id: response.data.data.id,
+						split_code: response.data.data.split_code,
 						name: response.data.data.name,
 						type: response.data.data.type,
 						currency: response.data.data.currency,
-						integration: response.data.data.integration,
-						domain: response.data.data.domain,
-						split_code: response.data.data.split_code,
-						active: response.data.data.active,
-						owner: response.data.data.owner,
-						subaccounts: response.data.data.subaccounts,
-						createdAt: response.data.data.createdAt,
-						updatedAt: response.data.data.updatedAt,
 					},
 				});
 			} else {
@@ -197,7 +183,6 @@ export class PaymentController {
 			res.status(500).json({
 				status: false,
 				message: error.response?.data?.message || "Internal server error",
-				error: error.message,
 			});
 		}
 	}
@@ -221,62 +206,124 @@ export class PaymentController {
 
 			if (!isPaystackConfigured()) {
 				res.status(500).json({
-					success: false,
+					status: false,
 					message: "Payment service is not configured",
 				});
 				return;
 			}
-			const response = await paystackApi.get(`/transaction/verify/${reference}`);
 
-			if (response.data.status) {
-				const transaction = response.data.data;
+			// Verify payment with Paystack
+			const paystackResponse = await paystackApi.get(
+				`/transaction/verify/${reference}`
+			);
 
-			// Update print job payment status if metadata contains jobId
-			if (transaction.metadata && transaction.metadata.jobId) {
-				const jobId = transaction.metadata.jobId;
-				if (mongoose.Types.ObjectId.isValid(jobId)) {
-					const printJob: any = await pdfPrintModel.findById(jobId);
-					if (printJob) {
-						printJob.paymentStatus =
-							transaction.status === "success" ? "paid" : "pending";
-						if (transaction.status === "success") {
-							printJob.paymentReference = reference;
-							printJob.paidAt = new Date();
-						}
-						await printJob.save();
-					}
-				}
-			}
-
-				res.status(200).json({
-					status: true,
-					message: "Payment verified successfully",
-					data: {
-						status: transaction.status,
-						reference: transaction.reference,
-						amount: transaction.amount / 100,
-						customer: {
-							email: transaction.customer?.email || transaction.email,
-						},
-						paidAt: transaction.paidAt,
-						channel: transaction.channel,
-						currency: transaction.currency,
-					},
-				});
-			} else {
+			// If Paystack API call failed
+			if (!paystackResponse.data.status) {
 				res.status(400).json({
 					status: false,
-					message: response.data.message || "Failed to verify payment",
+					message: paystackResponse.data.message || "Failed to verify payment",
 				});
+				return;
 			}
+
+			const transaction = paystackResponse.data.data;
+			const transactionStatus = transaction?.status || "pending";
+
+			// Update print job payment status if jobId exists in metadata
+			// Wrap in try-catch so database errors don't fail the whole request
+			try {
+				if (transaction?.metadata?.jobId) {
+					const jobId = transaction.metadata.jobId;
+					if (mongoose.Types.ObjectId.isValid(jobId)) {
+						const printJob = await pdfPrintModel.findById(jobId);
+						if (printJob) {
+							// Map Paystack status to our payment status
+							// Valid values: "pending" | "paid" | "failed" | "refunded"
+							const statusMap: Record<
+								string,
+								"pending" | "paid" | "failed" | "refunded"
+							> = {
+								success: "paid",
+								abandoned: "failed", // Map abandoned to failed
+								failed: "failed",
+							};
+
+							printJob.paymentStatus =
+								statusMap[transactionStatus] || "pending";
+
+							if (transactionStatus === "success") {
+								printJob.paymentReference = reference;
+								printJob.paidAt = new Date();
+							}
+
+							await printJob.save();
+						}
+					}
+				}
+			} catch (dbError: any) {
+				// Log database error but don't fail the payment verification
+				console.error("Error updating print job payment status:", dbError);
+			}
+
+			// Prepare response data with safe property access
+			const responseData: any = {
+				status: transactionStatus, // Actual transaction status: "success", "failed", "abandoned", "pending"
+				reference: transaction?.reference || reference,
+				amount: transaction?.amount ? transaction.amount / 100 : 0,
+				customer: {
+					email: transaction?.customer?.email || transaction?.email || "",
+				},
+				channel: transaction?.channel || null,
+				currency: transaction?.currency || "GHS",
+			};
+
+			// Include split information if available (for split payments)
+			if (transaction?.split) {
+				responseData.split = {
+					split_code: transaction.split.split_code,
+					shares: transaction.split.shares || [],
+				};
+			}
+
+			// Always return status: true when API call succeeds
+			// Frontend checks data.status for actual transaction status
+			res.status(200).json({
+				status: true, // API call succeeded
+				message: PaymentController.getStatusMessage(transactionStatus),
+				data: {
+					...responseData,
+					...(transactionStatus === "success" &&
+						transaction?.paidAt && { paidAt: transaction.paidAt }),
+				},
+			});
 		} catch (error: any) {
 			console.error("Verify payment error:", error);
+			console.error("Error details:", {
+				message: error.message,
+				stack: error.stack,
+				response: error.response?.data,
+			});
 			res.status(500).json({
 				status: false,
-				message: error.response?.data?.message || "Internal server error",
-				error: error.message,
+				message:
+					error.response?.data?.message ||
+					error.message ||
+					"Internal server error",
 			});
 		}
+	}
+
+	/**
+	 * Get status message based on transaction status
+	 */
+	private static getStatusMessage(status: string): string {
+		const messages: Record<string, string> = {
+			success: "Payment verified successfully",
+			failed: "Payment failed",
+			abandoned: "Payment was cancelled",
+			pending: "Payment is pending verification",
+		};
+		return messages[status] || `Payment status: ${status}`;
 	}
 
 	/**
@@ -289,13 +336,12 @@ export class PaymentController {
 			const clientId = (req as any).client?.clientId;
 			if (!clientId) {
 				res.status(401).json({
-					success: false,
+					status: false,
 					message: "Unauthorized",
 				});
 				return;
 			}
 
-			// Get all print jobs for this client with payment information
 			const printJobs = await pdfPrintModel
 				.find({ clientId })
 				.select("paymentStatus paymentReference paidAt totalPrice createdAt")
@@ -303,7 +349,7 @@ export class PaymentController {
 				.lean();
 
 			res.status(200).json({
-				success: true,
+				status: true,
 				message: "Payment history retrieved successfully",
 				data: printJobs,
 				count: printJobs.length,
@@ -311,11 +357,9 @@ export class PaymentController {
 		} catch (error: any) {
 			console.error("Get payment history error:", error);
 			res.status(500).json({
-				success: false,
+				status: false,
 				message: "Internal server error",
-				error: error.message,
 			});
 		}
 	}
 }
-
