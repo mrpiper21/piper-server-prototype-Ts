@@ -583,10 +583,9 @@ export class ClientController {
 			const order = await pdfPrintModel
 				.findById(id)
 				.populate("categoryId")
+				.populate("adminId")
 				.populate("executedBy")
 				.lean();
-
-			console.log("order ------- ", order);
 
 			if (!order) {
 				res.status(404).json({

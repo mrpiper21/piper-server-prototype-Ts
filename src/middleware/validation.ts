@@ -405,7 +405,13 @@ export const supportValidation = {
 export const paymentValidation = {
 	initialize: [
 		body("amount")
-			.isFloat({ min: 0.01 })
+			.custom((value) => {
+				const numValue = Number(value);
+				if (isNaN(numValue) || numValue <= 0) {
+					throw new Error("Amount must be a positive number");
+				}
+				return true;
+			})
 			.withMessage("Amount must be a positive number"),
 		body("email")
 			.isEmail()
@@ -414,23 +420,44 @@ export const paymentValidation = {
 		body("subaccount")
 			.optional()
 			.isString()
-			.withMessage("Subaccount must be a string"),
+			.trim()
+			.notEmpty()
+			.withMessage("Subaccount must be a non-empty string"),
 		body("split_code")
 			.optional()
 			.isString()
-			.withMessage("Split code must be a string"),
+			.trim()
+			.notEmpty()
+			.withMessage("Split code must be a non-empty string"),
 		body("currency")
 			.optional()
 			.isIn(["NGN", "GHS", "USD", "ZAR", "KES"])
 			.withMessage("Currency must be one of: NGN, GHS, USD, ZAR, KES"),
 		body("callback_url")
 			.optional()
-			.isURL()
-			.withMessage("Callback URL must be a valid URL"),
+			.isString()
+			.trim()
+			.custom((value) => {
+				if (!value) return true; // Allow empty/undefined
+				// More lenient URL validation that accepts localhost
+				try {
+					const url = new URL(value);
+					// Check if it's http, https, or other valid protocols
+					return ["http:", "https:"].includes(url.protocol);
+				} catch {
+					return false;
+				}
+			})
+			.withMessage("Callback URL must be a valid URL (http:// or https://)"),
 		body("metadata")
 			.optional()
-			.isObject()
-			.withMessage("Metadata must be an object"),
+			.custom((value) => {
+				// Allow null, undefined, or object
+				if (value !== null && value !== undefined && typeof value !== "object") {
+					throw new Error("Metadata must be an object");
+				}
+				return true;
+			}),
 	],
 
 	createSplit: [
