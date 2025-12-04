@@ -12,6 +12,7 @@ import {
 import { UserRole } from "../models/shared/enums.js";
 import { notifyClerksOfNewPrintJob } from "../services/printJobNotification.service.js";
 import { notifyClientOfJobCompletion } from "../services/clientNotification.service.js";
+import Category from "../models/category.model.js";
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -27,10 +28,8 @@ class PrinterController {
 		if (user) {
 			const mongoose = (await import("mongoose")).default;
 			if (user.adminId) {
-				// Clerks can only see jobs for their admin
 				filter.adminId = new mongoose.Types.ObjectId(user.adminId);
 			} else if (user.role === "admin" && user.userId) {
-				// Admins can see all their jobs
 				filter.adminId = new mongoose.Types.ObjectId(user.userId);
 			}
 		}
@@ -50,7 +49,6 @@ class PrinterController {
 			return { isValid: false, error: "Client ID is required" };
 		}
 
-		// Check if this is a result form category that doesn't require files
 		const mongoose = (await import("mongoose")).default;
 		let isResultForm = false;
 
@@ -67,7 +65,6 @@ class PrinterController {
 			}
 		}
 
-		// File is only required for non-result forms
 		if (!isResultForm && !file) {
 			return { isValid: false, error: "No file uploaded" };
 		}
@@ -118,7 +115,6 @@ class PrinterController {
 			});
 
 			if (uploadResult && uploadResult.public_id && uploadResult.secure_url) {
-				// Delete local file after successful upload
 				try {
 					fs.unlinkSync(file.path);
 				} catch (deleteError) {
@@ -179,7 +175,6 @@ class PrinterController {
 			yearOfCompletion: yearOfCompletion,
 		};
 
-		// Only add file-related fields if file exists
 		if (file) {
 			printData.fileName = file.originalname;
 			printData.filePath = cloudinaryData ? cloudinaryData.url : file.path;
@@ -217,7 +212,6 @@ class PrinterController {
 		const clientId = req.params.id;
 
 		try {
-			// Validate request
 			const validation = await this.validateFileUpload(file, body, clientId);
 			if (!validation.isValid) {
 				if (file) {
@@ -230,10 +224,8 @@ class PrinterController {
 				return;
 			}
 
-			// Upload to Cloudinary if configured
 			const cloudinaryData = await this.uploadToCloudinary(file);
 
-			// Prepare print job data
 			const printData = await this.preparePrintJobData(
 				file,
 				body,
@@ -245,12 +237,20 @@ class PrinterController {
 				cloudinaryData
 			);
 
-			// Create and save print job
+			if (body.paymentReference) {
+				printData.paymentReference = body.paymentReference;
+				printData.paymentStatus = body.paymentStatus || "paid";
+				if (body.totalPrice !== undefined) {
+					printData.totalPrice = parseFloat(body.totalPrice);
+				}
+				if (body.paidAt) {
+					printData.paidAt = new Date(body.paidAt);
+				}
+			}
+
 			const pdfPrint = new pdfPrintModel(printData);
 			await pdfPrint.save();
 
-			// Get category info for email template
-			const Category = (await import("../models/category.model.js")).default;
 			const category = await Category.findById(body.categoryId);
 
 			// Send email notifications to clerks (non-blocking)
@@ -282,10 +282,12 @@ class PrinterController {
 					location: pdfPrint.location,
 					status: pdfPrint.status,
 					submittedAt: pdfPrint.createdAt,
+					...(pdfPrint.totalPrice && { totalPrice: pdfPrint.totalPrice }),
+					...(pdfPrint.paymentStatus && { paymentStatus: pdfPrint.paymentStatus }),
+					...(pdfPrint.paymentReference && { paymentReference: pdfPrint.paymentReference }),
 				},
 			});
 		} catch (error: any) {
-			// Cleanup file on error
 			if (file) {
 				this.cleanupFile(file);
 			}
@@ -306,21 +308,18 @@ class PrinterController {
 		try {
 			const uploadsDir = path.join(process.cwd(), "uploads");
 
-			// Ensure upload directory exists
 			if (!fs.existsSync(uploadsDir)) {
 				fs.mkdirSync(uploadsDir, { recursive: true });
 			}
 
 			const localFilePath = path.join(uploadsDir, fileName);
 
-			// Download the file
 			const response = await axios({
 				method: "GET",
 				url: fileUrl,
 				responseType: "stream",
 			});
 
-			// Write file to disk
 			const writer = fs.createWriteStream(localFilePath);
 			response.data.pipe(writer);
 
@@ -356,7 +355,6 @@ class PrinterController {
 
 			const filter: Record<string, any> = {};
 
-			// Filter by adminId based on user role
 			const user = (req as any).user;
 			const adminIdFilter = await this.buildAdminIdFilter(user);
 			Object.assign(filter, adminIdFilter);
@@ -413,7 +411,6 @@ class PrinterController {
 			const { id } = req.params;
 			const user = (req as any).user;
 
-			// Build adminId filter
 			const adminIdFilter = await this.buildAdminIdFilter(user);
 
 			const printJob = await pdfPrintModel
@@ -456,7 +453,6 @@ class PrinterController {
 			const { status, errorMessage, sendReportEmailToClient } = req.body;
 			const user = (req as any).user;
 
-			// Build adminId filter
 			const adminIdFilter = await this.buildAdminIdFilter(user);
 
 			const validStatuses = ["pending", "processing", "completed", "failed"];
@@ -469,7 +465,6 @@ class PrinterController {
 				return;
 			}
 
-			// Get the print job before update to check for Cloudinary public_id and adminId
 			const existingPrintJob = await pdfPrintModel.findOne({
 				_id: id,
 				...adminIdFilter,
@@ -486,19 +481,20 @@ class PrinterController {
 			const updateData: Record<string, any> = { status };
 			if (errorMessage) updateData.errorMessage = errorMessage;
 
-			// Update with adminId filter to ensure we only update jobs the user has access to
-			const printJob = await pdfPrintModel.findOneAndUpdate(
-				{ _id: id, ...adminIdFilter },
-				{
-					...updateData,
-					executedBy: user._id,
-					executedByModel: user.role === UserRole.ADMIN ? "User" : "Clerk",
-				},
-				{
-					new: true,
-					runValidators: true,
-				}
-			).populate("categoryId");
+			const printJob = await pdfPrintModel
+				.findOneAndUpdate(
+					{ _id: id, ...adminIdFilter },
+					{
+						...updateData,
+						executedBy: user._id,
+						executedByModel: user.role === UserRole.ADMIN ? "User" : "Clerk",
+					},
+					{
+						new: true,
+						runValidators: true,
+					}
+				)
+				.populate("categoryId");
 
 			if (!printJob) {
 				res.status(404).json({
@@ -508,7 +504,6 @@ class PrinterController {
 				return;
 			}
 
-			// Delete from Cloudinary if status is updated to "completed" and public_id exists
 			if (
 				status === "completed" &&
 				existingPrintJob.cloudinaryPublicId &&
@@ -523,11 +518,9 @@ class PrinterController {
 					);
 				} catch (deleteError: any) {
 					console.error("Error deleting file from Cloudinary:", deleteError);
-					// Don't fail the request if deletion fails, just log it
 				}
 			}
 
-			// Send email to client if job is completed and sendReportEmailToClient is true
 			if (status === "completed" && sendReportEmailToClient === true) {
 				const category = printJob.categoryId as any;
 				const emailData: any = {
@@ -540,7 +533,7 @@ class PrinterController {
 					jobId: printJob._id.toString(),
 					completedAt: printJob.updatedAt || new Date(),
 				};
-				
+
 				if (category?.categoryType) {
 					emailData.categoryType = String(category.categoryType);
 				}
@@ -556,13 +549,12 @@ class PrinterController {
 				if (printJob.yearOfCompletion) {
 					emailData.yearOfCompletion = String(printJob.yearOfCompletion);
 				}
-				
+
 				notifyClientOfJobCompletion(
 					printJob.clientId.toString(),
 					emailData
 				).catch((error) => {
 					console.error("Failed to send client completion email:", error);
-					// Don't fail the request if email fails
 				});
 			}
 
@@ -591,7 +583,6 @@ class PrinterController {
 			const { id } = req.params;
 			const user = (req as any).user;
 
-			// Build adminId filter
 			const adminIdFilter = await this.buildAdminIdFilter(user);
 
 			const printJob = await pdfPrintModel.findOne({
@@ -607,7 +598,6 @@ class PrinterController {
 				return;
 			}
 
-			// Delete from Cloudinary if public_id exists
 			if (printJob.cloudinaryPublicId && isCloudinaryConfigured()) {
 				try {
 					await cloudinary.uploader.destroy(printJob.cloudinaryPublicId);
@@ -616,11 +606,9 @@ class PrinterController {
 					);
 				} catch (deleteError: any) {
 					console.error("Error deleting file from Cloudinary:", deleteError);
-					// Continue with deletion even if Cloudinary deletion fails
 				}
 			}
 
-			// Delete local file if it exists (fallback for non-Cloudinary uploads)
 			if (printJob.filePath && fs.existsSync(printJob.filePath)) {
 				try {
 					fs.unlinkSync(printJob.filePath);

@@ -61,6 +61,8 @@ export class PaymentController {
 				transactionData
 			);
 
+			console.log("initialize payment response", response.data.data);
+
 			if (response.data.status) {
 				res.status(200).json({
 					status: true,
