@@ -105,13 +105,17 @@ export const searchCategories = async (req: Request, res: Response) => {
 			query.name = { $regex: search.trim(), $options: "i" };
 		}
 
-		// Fetch categories with populated admin data
+		// Fetch categories with populated admin data and rating
 		const categories = await categoryModel
 			.find(query)
 			.populate({
 				path: "adminId",
 				select: "name email location businessName businessPhone websiteUrl businessCoverImage _id workingHours",
 				match: { isActive: true },
+				populate: {
+					path: "rating",
+					select: "averageRating",
+				},
 			})
 			.lean();
 
@@ -177,6 +181,7 @@ export const searchCategories = async (req: Request, res: Response) => {
 							businessCoverImage: admin.businessCoverImage || null,
 							workingHours: admin.workingHours || null,
 							isOpen: isStationCurrentlyOpen(admin.workingHours),
+							averageRating: (admin.rating as any)?.averageRating || 0,
 						},
 					};
 				})
@@ -214,6 +219,7 @@ export const searchCategories = async (req: Request, res: Response) => {
 						businessCoverImage: admin.businessCoverImage || null,
 						workingHours: admin.workingHours || null,
 						isOpen: isStationCurrentlyOpen(admin.workingHours),
+						averageRating: (admin.rating as any)?.averageRating || 0,
 					},
 				};
 			});

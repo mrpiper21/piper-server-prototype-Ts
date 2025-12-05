@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import User from "../models/user.model.js";
 import { UserRole, type Permission } from "../models/shared/enums.js";
 import Clerk from "../models/clerk.model.js";
+import { RatingController } from "./rating.controller.js";
 
 // Extend Express Request interface to include user
 declare global {
@@ -59,6 +60,15 @@ export class AuthController {
 			});
 
 			await user.save();
+
+			if (user.role === UserRole.ADMIN) {
+				try {
+					await RatingController.createDefaultRating(user._id.toString());
+				} catch (ratingError) {
+					console.error("Error creating default rating:", ratingError);
+					// Don't fail registration if rating creation fails
+				}
+			}
 
 			// Generate token
 			const token = user.generateAuthToken();

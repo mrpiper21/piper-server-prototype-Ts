@@ -742,6 +742,7 @@ export class ClientController {
 				.select(
 					"name email location businessName businessPhone websiteUrl businessCoverImage _id createdAt workingHours"
 				)
+				.populate("rating", "averageRating")
 				.lean()
 				.sort({ name: 1 });
 
@@ -809,6 +810,7 @@ export class ClientController {
 							),
 							createdAt: station.createdAt,
 							distance: parseFloat(distance.toFixed(2)), // Round to 2 decimal places
+							averageRating: (station.rating as any)?.averageRating || 0,
 						};
 					})
 					.filter((station) => station !== null) as any[];
@@ -841,6 +843,7 @@ export class ClientController {
 					workingHours: station.workingHours || null,
 					isOpen: ClientController.isStationCurrentlyOpen(station.workingHours),
 					createdAt: station.createdAt,
+					averageRating: (station.rating as any)?.averageRating || 0,
 				}));
 
 				res.json({
@@ -863,7 +866,9 @@ export class ClientController {
 	): Promise<void> {
 		try {
 			const { id } = req.params;
-			const printStation = await User.findById(id).lean();
+			const printStation = await User.findById(id)
+				.populate("rating", "averageRating")
+				.lean();
 			if (!printStation) {
 				res.status(404).json({
 					success: false,
@@ -878,6 +883,7 @@ export class ClientController {
 				isOpen: ClientController.isStationCurrentlyOpen(
 					printStation.workingHours
 				),
+				averageRating: (printStation.rating as any)?.averageRating || 0,
 			};
 
 			res.json({

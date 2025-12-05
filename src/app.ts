@@ -16,6 +16,7 @@ import categoryRoutes from "./routes/category.route.js";
 import supportRoutes from "./routes/support.route.js";
 import superAdminRoutes from "./routes/superadmin.route.js";
 import paymentRoutes from "./routes/payment.route.js";
+import ratingRoutes from "./routes/rating.route.js";
 // import { startKeepAlive } from "./utils/keepAlive.js";
 
 // Load environment variables
@@ -58,6 +59,7 @@ app.use("/api/otp", otpRoutes);
 app.use("/api/support", supportRoutes);
 app.use("/api/superadmin", superAdminRoutes);
 app.use("/api/payments", paymentRoutes);
+app.use("/api/ratings", ratingRoutes);
 
 // Health check endpoint
 app.get("/api/health", (req: Request, res: Response) => {
