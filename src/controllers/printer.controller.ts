@@ -13,6 +13,7 @@ import { UserRole } from "../models/shared/enums.js";
 import { notifyClerksOfNewPrintJob } from "../services/printJobNotification.service.js";
 import { notifyClientOfJobCompletion } from "../services/clientNotification.service.js";
 import Category from "../models/category.model.js";
+import User from "../models/user.model.js";
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -283,8 +284,12 @@ class PrinterController {
 					status: pdfPrint.status,
 					submittedAt: pdfPrint.createdAt,
 					...(pdfPrint.totalPrice && { totalPrice: pdfPrint.totalPrice }),
-					...(pdfPrint.paymentStatus && { paymentStatus: pdfPrint.paymentStatus }),
-					...(pdfPrint.paymentReference && { paymentReference: pdfPrint.paymentReference }),
+					...(pdfPrint.paymentStatus && {
+						paymentStatus: pdfPrint.paymentStatus,
+					}),
+					...(pdfPrint.paymentReference && {
+						paymentReference: pdfPrint.paymentReference,
+					}),
 				},
 			});
 		} catch (error: any) {
@@ -403,6 +408,244 @@ class PrinterController {
 	}
 
 	/**
+	 * Create a quote/print job from quote form
+	 * Used by agents to create quotes for WhatsApp clients
+	 */
+	async createQuote(req: Request, res: Response): Promise<void> {
+		try {
+			const {
+				adminId,
+				categoryId,
+				orderDescription,
+				quantity,
+				specifications,
+				totalPrice,
+				internalNotes,
+			} = req.body;
+
+			console.log("Create quote request body:", {
+				adminId,
+				categoryId,
+				hasSpecifications: !!specifications,
+				totalPrice,
+				totalPriceType: typeof totalPrice,
+			});
+
+			const user = (req as any).user;
+
+			if (
+				!adminId ||
+				!categoryId ||
+				!specifications ||
+				totalPrice === undefined ||
+				totalPrice === null
+			) {
+				res.status(400).json({
+					success: false,
+					message:
+						"Missing required fields: adminId, clientId, categoryId, specifications, and totalPrice are required",
+					received: {
+						hasAdminId: !!adminId,
+						hasCategoryId: !!categoryId,
+						hasSpecifications: !!specifications,
+						hasTotalPrice: totalPrice !== undefined && totalPrice !== null,
+					},
+				});
+				return;
+			}
+
+			const mongoose = (await import("mongoose")).default;
+
+			// Validate ObjectIds
+			if (!mongoose.Types.ObjectId.isValid(adminId)) {
+				res.status(400).json({
+					success: false,
+					message: "Invalid adminId format",
+					adminId,
+				});
+				return;
+			}
+
+			if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+				res.status(400).json({
+					success: false,
+					message: "Invalid categoryId format",
+					categoryId,
+				});
+				return;
+			}
+
+			// Parse totalPrice - ensure it's a valid number
+			const parsedTotalPrice =
+				typeof totalPrice === "number"
+					? totalPrice
+					: parseFloat(String(totalPrice));
+			if (isNaN(parsedTotalPrice) || parsedTotalPrice <= 0) {
+				res.status(400).json({
+					success: false,
+					message: "Invalid totalPrice: must be a positive number",
+					totalPrice,
+				});
+				return;
+			}
+
+			// Create print job with quote data
+			const printData: Record<string, any> = {
+				adminId: new mongoose.Types.ObjectId(adminId),
+				// categoryId: new mongoose.Types.ObjectId(categoryId),
+				status: "quote_sent",
+				paymentStatus: "pending",
+				submittedBy: "whatsapp-agent",
+				orderDescription: orderDescription || "",
+				specifications: specifications,
+				internalNotes: internalNotes || "",
+				totalPrice: parsedTotalPrice,
+				quantity: quantity ? parseInt(String(quantity), 10) : 1,
+				isQuotation: true,
+			};
+
+			const pdfPrint = new pdfPrintModel(printData);
+			await pdfPrint.save();
+
+			// Populate for response
+			await pdfPrint.populate("categoryId");
+
+			res.status(201).json({
+				success: true,
+				message: "Quote created successfully",
+				data: {
+					id: pdfPrint._id.toString(),
+					orderDescription: pdfPrint.orderDescription,
+					quantity: pdfPrint.quantity,
+					specifications: pdfPrint.specifications,
+					totalPrice: pdfPrint.totalPrice,
+					internalNotes: pdfPrint.internalNotes,
+					status: pdfPrint.status,
+					adminId: pdfPrint.adminId.toString(),
+					categoryId:
+						typeof pdfPrint.categoryId === "object" &&
+						pdfPrint.categoryId !== null
+							? (pdfPrint.categoryId as any)._id?.toString() ||
+							  (pdfPrint.categoryId as any).id?.toString()
+							: (pdfPrint.categoryId as any)?.toString() || "No category",
+					createdAt: pdfPrint.createdAt,
+				},
+			});
+		} catch (error: any) {
+			console.error("Error creating quote:", error);
+			console.error("Error stack:", error.stack);
+			res.status(500).json({
+				success: false,
+				message: "Failed to create quote",
+				error: error.message,
+				...(process.env.NODE_ENV === "development" && { stack: error.stack }),
+			});
+		}
+	}
+
+	/**
+	 * Get quote details by job ID (public endpoint for clients)
+	 */
+	async getQuoteDetails(req: Request, res: Response): Promise<void> {
+		try {
+			const { id } = req.params;
+
+			if (!id) {
+				res.status(400).json({
+					success: false,
+					message: "Job ID is required",
+				});
+				return;
+			}
+
+			const mongoose = (await import("mongoose")).default;
+			const jobId = id as string;
+
+			if (!mongoose.Types.ObjectId.isValid(jobId)) {
+				res.status(400).json({
+					success: false,
+					message: "Invalid job ID format",
+				});
+				return;
+			}
+
+			const printJob = await pdfPrintModel
+				.findById(jobId)
+				.populate("categoryId")
+				.populate("clientId")
+				.select(
+					"orderDescription quantity specifications totalPrice internalNotes status adminId clientId categoryId createdAt"
+				)
+				.lean();
+
+			if (!printJob) {
+				res.status(404).json({
+					success: false,
+					message: "Quote not found",
+				});
+				return;
+			}
+
+			if (!printJob) {
+				res.status(404).json({
+					success: false,
+					message: "Quote not found",
+				});
+				return;
+			}
+
+			if (printJob.status == "completed" || printJob.status == "paid") {
+				res.status(404).json({
+					success: false,
+					message: "Quotation has already been completed",
+				});
+				return;
+			}
+
+			const admin = await User.findById(printJob.adminId);
+			if (!admin) {
+				res.status(404).json({
+					success: false,
+					message: "Admin not found",
+				});
+				return;
+			}
+
+			res.json({
+				success: true,
+				data: {
+					id: printJob._id?.toString() || jobId,
+					orderDescription: printJob.orderDescription || "",
+					quantity: printJob.quantity || 1,
+					specifications: printJob.specifications || "",
+					totalPrice: printJob.totalPrice || 0,
+					internalNotes: printJob.internalNotes || "",
+					status: printJob.status || "pending",
+					adminId: {
+						_id: admin._id.toString(),
+						name: admin.name,
+						email: admin.email,
+						businessName: admin.businessName,
+						businessAddress: admin.location.address,
+						businessLogo: admin.businessCoverImage,
+						businessPaystackSubaccountCode: admin.paystackSubaccountCode,
+					},
+					clientId: printJob.clientId?.toString() || "",
+					categoryId: printJob.categoryId?.toString() || "",
+					createdAt: printJob.createdAt || new Date(),
+				},
+			});
+		} catch (error: any) {
+			console.error("Error fetching quote details:", error);
+			res.status(500).json({
+				success: false,
+				message: "Failed to fetch quote details",
+				error: error.message,
+			});
+		}
+	}
+
+	/**
 	 * Get single print job by ID
 	 * Clerks can only access jobs for their admin
 	 */
@@ -450,12 +693,28 @@ class PrinterController {
 	async updatePrintJobStatus(req: Request, res: Response): Promise<void> {
 		try {
 			const { id } = req.params;
-			const { status, errorMessage, sendReportEmailToClient } = req.body;
+			const {
+				status,
+				errorMessage,
+				sendReportEmailToClient,
+				paymentReference,
+				paymentStatus,
+				totalPrice,
+				paidAt,
+				clientId,
+			} = req.body;
 			const user = (req as any).user;
 
 			const adminIdFilter = await this.buildAdminIdFilter(user);
 
-			const validStatuses = ["pending", "processing", "completed", "failed"];
+			const validStatuses = [
+				"pending",
+				"processing",
+				"completed",
+				"failed",
+				"paid",
+				"quote_sent",
+			];
 			if (!validStatuses.includes(status)) {
 				res.status(400).json({
 					success: false,
@@ -465,10 +724,20 @@ class PrinterController {
 				return;
 			}
 
-			const existingPrintJob = await pdfPrintModel.findOne({
+			// Allow both admin/clerk (via adminIdFilter) and client (via clientId) to update
+			let existingPrintJob = await pdfPrintModel.findOne({
 				_id: id,
 				...adminIdFilter,
 			});
+
+			// If not found via admin filter, check if user is the client
+			if (!existingPrintJob && user.role === "client" && user.userId) {
+				const mongoose = (await import("mongoose")).default;
+				existingPrintJob = await pdfPrintModel.findOne({
+					_id: id,
+					clientId: new mongoose.Types.ObjectId(user.userId),
+				});
+			}
 
 			if (!existingPrintJob) {
 				res.status(404).json({
@@ -481,13 +750,41 @@ class PrinterController {
 			const updateData: Record<string, any> = { status };
 			if (errorMessage) updateData.errorMessage = errorMessage;
 
+			// Add payment fields if provided
+			if (paymentReference) updateData.paymentReference = paymentReference;
+			if (paymentStatus) updateData.paymentStatus = paymentStatus;
+			if (totalPrice !== undefined) updateData.totalPrice = totalPrice;
+			if (paidAt) updateData.paidAt = paidAt;
+
+			// Update clientId if provided (especially for quote confirmations)
+			if (clientId) {
+				const mongoose = (await import("mongoose")).default;
+				if (mongoose.Types.ObjectId.isValid(clientId)) {
+					updateData.clientId = new mongoose.Types.ObjectId(clientId);
+				}
+			}
+
+			// Build update filter - allow both admin/clerk and client
+			const updateFilter: Record<string, any> = { _id: id };
+			if (Object.keys(adminIdFilter).length > 0) {
+				Object.assign(updateFilter, adminIdFilter);
+			} else if (user.role === "client" && user.userId) {
+				const mongoose = (await import("mongoose")).default;
+				updateFilter.clientId = new mongoose.Types.ObjectId(user.userId);
+			}
+
 			const printJob = await pdfPrintModel
 				.findOneAndUpdate(
-					{ _id: id, ...adminIdFilter },
+					updateFilter,
 					{
 						...updateData,
 						executedBy: user._id,
-						executedByModel: user.role === UserRole.ADMIN ? "User" : "Clerk",
+						executedByModel:
+							user.role === UserRole.ADMIN
+								? "User"
+								: user.role === "client"
+								? "Client"
+								: "Clerk",
 					},
 					{
 						new: true,
@@ -551,7 +848,7 @@ class PrinterController {
 				}
 
 				notifyClientOfJobCompletion(
-					printJob.clientId.toString(),
+					printJob.clientId?.toString() || "",
 					emailData
 				).catch((error) => {
 					console.error("Failed to send client completion email:", error);

@@ -86,6 +86,9 @@ const upload = multer({
 	},
 });
 
+// Public routes (no authentication required)
+router.get('/quotes/:id', (req: Request, res: Response) => PrinterController.getQuoteDetails(req, res));
+
 // Apply authentication middleware to all routes that need req.user
 // Note: submitPDF route might need client authentication instead - adjust if needed
 router.use(AuthController.verifyToken);
@@ -93,6 +96,7 @@ router.use(AuthController.verifyToken);
 // Routes
 // File upload is optional - some forms (wassce, bece, novdec) don't require files
 router.post('/submit/client/:id', upload.single('pdfFile'), (req: Request, res: Response) => PrinterController.submitPDF(req, res));
+router.post('/quotes', (req: Request, res: Response) => PrinterController.createQuote(req, res));
 router.get('/jobs', (req: Request, res: Response) => PrinterController.getPrintJobs(req, res));
 router.get('/jobs/:id', (req: Request, res: Response) => PrinterController.getPrintJob(req, res));
 router.put('/jobs/:id/status', (req: Request, res: Response) => PrinterController.updatePrintJobStatus(req, res));

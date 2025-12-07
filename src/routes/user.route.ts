@@ -169,6 +169,16 @@ router.get('/my-clerks/:adminId',
   // AuthController.checkRole([UserRole.ADMIN]),
   UserController.getMyClerks
 );
+
+/**
+ * @route   GET /api/users/admin/:id
+ * @desc    Get admin by ID
+ * @access  Admin only
+ */
+router.get('/admin/:id',
+  // AuthController.checkRole([UserRole.ADMIN]),
+  UserController.getAdminById
+);
 /**
  * @route   GET /api/users/my-clerks
  * @desc    Get clerks for the current admin

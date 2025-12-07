@@ -21,7 +21,7 @@ const PDFPrintSchema = new mongoose.Schema(
 		clientId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Client",
-			required: true,
+			required: false,
 		},
 		indexNumber: {
 			type: String,
@@ -44,11 +44,18 @@ const PDFPrintSchema = new mongoose.Schema(
 		categoryId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Category",
-			required: true,
+			required: false,
 		},
 		status: {
 			type: String,
-			enum: ["pending", "processing", "completed", "failed"],
+			enum: [
+				"pending",
+				"processing",
+				"completed",
+				"failed",
+				"paid",
+				"quote_sent",
+			],
 			default: "pending",
 		},
 		printerName: {
@@ -139,6 +146,23 @@ const PDFPrintSchema = new mongoose.Schema(
 		paidAt: {
 			type: Date,
 			required: false,
+		},
+		// Quote-specific fields
+		specifications: {
+			type: String,
+			required: false,
+		},
+		internalNotes: {
+			type: String,
+			required: false,
+		},
+		orderDescription: {
+			type: String,
+			required: false,
+		},
+		isQuotation: {
+			type: Boolean,
+			default: false,
 		},
 	},
 	{

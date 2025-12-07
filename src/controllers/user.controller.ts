@@ -711,4 +711,29 @@ export class UserController {
 			});
 		}
 	}
+
+	static async getAdminById(req: Request, res: Response): Promise<void> {
+		try {
+			const { id } = req.params;
+			const admin = await User.findById(id);
+			if (!admin) {
+				res.status(404).json({
+					success: false,
+					message: "Admin not found",
+				});
+				return;
+			}
+
+			res.json({
+				success: true,
+				data: { admin },
+			});
+		} catch (error) {
+			console.error("Get admin by ID error:", error);
+			res.status(500).json({
+				success: false,
+				message: "Internal server error",
+			});
+		}
+	}
 }
