@@ -7,10 +7,12 @@ import {
 	getCategoryById,
 } from "../controllers/category.controller.js";
 import { AuthController } from "../controllers/auth.controller.js";
+import { searchCategories } from "../controllers/categorySearch.controller.js";
 
 const router = Router();
 
 router.post("/", AuthController.verifyToken, createCategory);
+router.get("/search", searchCategories);
 router.get("/admin/:adminId", getCategoryByAdminId);
 router.get("/:id", getCategoryById);
 router.put("/admin/:id", AuthController.verifyToken, updateCategory);

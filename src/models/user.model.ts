@@ -20,6 +20,7 @@ export interface IUser extends Document {
 	businessCoverImage?: string;
 	paystackSubaccountCode?: string;
 	websiteUrl?: string;
+	rating?: mongoose.Types.ObjectId;
 	workingHours?: {
 		day: string;
 		isOpen: boolean;
@@ -98,6 +99,12 @@ const userSchema = new Schema<IUser>(
 		businessCoverImage: {
 			type: String,
 			required: false,
+		},
+		rating: {
+			type: Schema.Types.ObjectId,
+			ref: "Rating",
+			required: false,
+			default: null,
 		},
 		workingHours: [
 			{

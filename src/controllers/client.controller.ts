@@ -9,6 +9,64 @@ import Clerk from "../models/clerk.model.js";
 
 export class ClientController {
 	/**
+	 * Helper method to check if a station is currently open based on working hours
+	 * @param workingHours Array of working hours for the station
+	 * @returns boolean | null - true if open, false if closed, null if hours not available
+	 */
+	private static isStationCurrentlyOpen(
+		workingHours?: Array<{
+			day: string;
+			isOpen: boolean;
+			openTime?: string;
+			closeTime?: string;
+		}>
+	): boolean | null {
+		// If no working hours provided, return null (unknown status)
+		if (!workingHours || workingHours.length === 0) {
+			return null;
+		}
+
+		const now = new Date();
+		const dayNames = [
+			"sunday",
+			"monday",
+			"tuesday",
+			"wednesday",
+			"thursday",
+			"friday",
+			"saturday",
+		];
+		const currentDayIndex = now.getDay();
+		const currentDay = dayNames[currentDayIndex];
+		const currentTime = now.toTimeString().slice(0, 5); // Format: "HH:mm"
+
+		// Find today's schedule
+		const todaySchedule = workingHours.find(
+			(wh) => wh.day.toLowerCase() === currentDay
+		);
+
+		// If no schedule for today, station is closed
+		if (!todaySchedule) {
+			return false;
+		}
+
+		// If today is marked as not open, station is closed
+		if (!todaySchedule.isOpen) {
+			return false;
+		}
+
+		// If no open/close times specified but isOpen is true, consider it open all day
+		if (!todaySchedule.openTime || !todaySchedule.closeTime) {
+			return true;
+		}
+
+		// Check if current time is within open hours
+		return (
+			currentTime >= todaySchedule.openTime &&
+			currentTime <= todaySchedule.closeTime
+		);
+	}
+	/**
 	 * Register a new client
 	 */
 	static async register(req: Request, res: Response): Promise<void> {
@@ -583,10 +641,9 @@ export class ClientController {
 			const order = await pdfPrintModel
 				.findById(id)
 				.populate("categoryId")
+				.populate("adminId")
 				.populate("executedBy")
 				.lean();
-
-			console.log("order ------- ", order);
 
 			if (!order) {
 				res.status(404).json({
@@ -683,8 +740,9 @@ export class ClientController {
 
 			let printStations = await User.find(query)
 				.select(
-					"name email location businessName businessPhone websiteUrl businessCoverImage _id createdAt"
+					"name email location businessName businessPhone websiteUrl businessCoverImage _id createdAt workingHours"
 				)
+				.populate("rating", "averageRating")
 				.lean()
 				.sort({ name: 1 });
 
@@ -746,8 +804,13 @@ export class ClientController {
 							businessPhone: station.businessPhone || null,
 							websiteUrl: station.websiteUrl || null,
 							businessCoverImage: station.businessCoverImage || null,
+							workingHours: station.workingHours || null,
+							isOpen: ClientController.isStationCurrentlyOpen(
+								station.workingHours
+							),
 							createdAt: station.createdAt,
 							distance: parseFloat(distance.toFixed(2)), // Round to 2 decimal places
+							averageRating: (station.rating as any)?.averageRating || 0,
 						};
 					})
 					.filter((station) => station !== null) as any[];
@@ -777,7 +840,10 @@ export class ClientController {
 					businessPhone: station.businessPhone || null,
 					websiteUrl: station.websiteUrl || null,
 					businessCoverImage: station.businessCoverImage || null,
+					workingHours: station.workingHours || null,
+					isOpen: ClientController.isStationCurrentlyOpen(station.workingHours),
 					createdAt: station.createdAt,
+					averageRating: (station.rating as any)?.averageRating || 0,
 				}));
 
 				res.json({
@@ -800,7 +866,9 @@ export class ClientController {
 	): Promise<void> {
 		try {
 			const { id } = req.params;
-			const printStation = await User.findById(id);
+			const printStation = await User.findById(id)
+				.populate("rating", "averageRating")
+				.lean();
 			if (!printStation) {
 				res.status(404).json({
 					success: false,
@@ -808,9 +876,19 @@ export class ClientController {
 				});
 				return;
 			}
+
+			// Add isOpen status based on current time and working hours
+			const stationWithStatus = {
+				...printStation,
+				isOpen: ClientController.isStationCurrentlyOpen(
+					printStation.workingHours
+				),
+				averageRating: (printStation.rating as any)?.averageRating || 0,
+			};
+
 			res.json({
 				success: true,
-				data: { printStation },
+				data: { printStation: stationWithStatus },
 			});
 		} catch (error: any) {
 			console.error("Get print station by ID error:", error);
