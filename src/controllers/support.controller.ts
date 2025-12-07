@@ -92,6 +92,13 @@ export class SupportController {
 			}
 
 			// Verify the job belongs to the client
+			if (!job.clientId) {
+				res.status(403).json({
+					success: false,
+					message: "Job does not belong to the specified client",
+				});
+				return;
+			}
 			if (job.clientId.toString() !== clientId) {
 				res.status(403).json({
 					success: false,
@@ -314,6 +321,13 @@ export class SupportController {
 				filter.adminId = adminIdFilter.adminId;
 			} else if (clientId) {
 				// Client - check if job belongs to them
+				if (!job.clientId) {
+					res.status(403).json({
+						success: false,
+						message: "Access denied",
+					});
+					return;
+				}
 				if (job.clientId.toString() !== clientId) {
 					res.status(403).json({
 						success: false,
