@@ -14,6 +14,8 @@ import { notifyClerksOfNewPrintJob } from "../services/printJobNotification.serv
 import { notifyClientOfJobCompletion } from "../services/clientNotification.service.js";
 import Category from "../models/category.model.js";
 import User from "../models/user.model.js";
+import mongoose from "mongoose";
+import Clerk from "../models/clerk.model.js";
 
 const unlinkAsync = promisify(fs.unlink);
 
@@ -407,6 +409,23 @@ class PrinterController {
 		}
 	}
 
+	private async getAdmin(userId: string): Promise<any> {
+		let adminId = null;
+
+		const admin = await User.findById(new mongoose.Types.ObjectId(userId));
+
+		if (admin) {
+			adminId = admin._id.toString();
+		}
+		const clerk = await Clerk.findById({
+			adminId: new mongoose.Types.ObjectId(userId),
+		});
+		if (clerk) {
+			adminId = clerk.adminId.toString();
+		}
+		return adminId;
+	}
+
 	/**
 	 * Create a quote/print job from quote form
 	 * Used by agents to create quotes for WhatsApp clients
@@ -414,7 +433,6 @@ class PrinterController {
 	async createQuote(req: Request, res: Response): Promise<void> {
 		try {
 			const {
-				adminId,
 				categoryId,
 				orderDescription,
 				quantity,
@@ -423,15 +441,9 @@ class PrinterController {
 				internalNotes,
 			} = req.body;
 
-			console.log("Create quote request body:", {
-				adminId,
-				categoryId,
-				hasSpecifications: !!specifications,
-				totalPrice,
-				totalPriceType: typeof totalPrice,
-			});
-
-			const user = (req as any).user;
+			const adminId = await this.getAdmin(
+				req.body.adminId || req.user?.userId || req.user?.adminId
+			);
 
 			if (
 				!adminId ||
