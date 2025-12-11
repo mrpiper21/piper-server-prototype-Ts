@@ -257,20 +257,22 @@ class PrinterController {
 			const category = await Category.findById(body.categoryId);
 
 			// Send email notifications to clerks (non-blocking)
-			// notifyClerksOfNewPrintJob(body.adminId, {
-			// 	fileName: pdfPrint?.fileName ?? null,
-			// 	artwork: pdfPrint.artwork || "",
-			// 	size: pdfPrint.size || "",
-			// 	quantity: pdfPrint.quantity || 0,
-			// 	location: pdfPrint.location || "",
-			// 	jobId: pdfPrint._id.toString(),
-			// 	submittedAt: pdfPrint.createdAt || new Date(),
-			// 	...(category?.categoryType && { categoryType: String(category.categoryType) }),
-			// 	...(category?.name && { categoryName: String(category.name) }),
-			// } as any).catch((error) => {
-			// 	console.error("Failed to send email notifications:", error);
-			// 	// Don't fail the request if email fails
-			// });
+			notifyClerksOfNewPrintJob(body.adminId, {
+				fileName: pdfPrint?.fileName ?? null,
+				artwork: pdfPrint.artwork || "",
+				size: pdfPrint.size || "",
+				quantity: pdfPrint.quantity || 0,
+				location: pdfPrint.location || "",
+				jobId: pdfPrint._id.toString(),
+				submittedAt: pdfPrint.createdAt || new Date(),
+				...(category?.categoryType && {
+					categoryType: String(category.categoryType),
+				}),
+				...(category?.name && { categoryName: String(category.name) }),
+			} as any).catch((error) => {
+				console.error("Failed to send email notifications:", error);
+				// Don't fail the request if email fails
+			});
 
 			// Return success response
 			res.status(201).json({
